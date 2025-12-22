@@ -1,0 +1,188 @@
+---
+title: "Support Vector Regression - Mathematical Overview"
+author: "Luisa Kalkert"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+## Support Vector Machines for Regression
+
+```{r, fig.width=10, fig.height=6, out.width='100%', fig.align='center'}
+set.seed(123)
+
+
+x <- seq(-10, 10, 0.5) + rnorm(length(seq(-10, 10, 0.5)), mean = 0, sd = 0.1)
+y <- 1/170 * (x^3 - 3* x^2 - 70*x + 5 + rnorm(length(x), mean = 0, sd = 170))
+
+library(e1071)
+
+epsilon <- 1
+cost <- 1
+
+model <- svm(y ~ x, data = data.frame(x = x, y = y), epsilon = epsilon, cost = cost)
+predictedY <- predict(model, data.frame(x = x))
+
+plot(x, y, pch = 16, col = "grey70")
+lines(x, predictedY, col = "darkgreen")
+
+
+# Add ε-tube
+polygon(
+ c(x, rev(x)),
+ c(predictedY + epsilon, rev(predictedY - epsilon)),
+ border = NA,
+ col = rgb(1, 0, 0, 0.15)
+)
+
+# mark the 17 points that are the furthest from the predictedY 
+idx_furthest <- order(abs(predictedY - y), decreasing = TRUE)[1:17]
+points(x[idx_furthest], y[idx_furthest], 
+       col = "#000000", 
+       bg = "#ffffff00",
+       pch = 21,
+       cex = 1.6,
+       lwd = 1)
+
+
+# Add an arrow (dashed, double sided, between ypred at x = 10 and ypred at x = 10   + 1 )
+arrows(10, predictedY[length(predictedY)], 10, predictedY[length(predictedY)] + epsilon, length = 0.1, lty = 2, col = "black", code = 3)
+# add a text "ε" at the end of the arrow
+text(10, predictedY[length(predictedY)] + 1/2, expression(epsilon), pos = 4)
+
+# Add an arrow between 5,-5 and 5,-2.5 with text xsi_i star (flipped direction)
+arrows(5.05, -4, 5.05, -2.28, length = 0.1, lty = 2, col = "black")
+text(5.05, -3.2, expression(xi[j]^"*"), pos = 4)
+
+
+# Add an arrow between the 13th last point and the 13th last point - 1 with text xsi_j
+arrows(x[length(x) - 12], y[length(y) - 12], x[length(x) - 12], y[length(y) - 12]- 0.5, length = 0.1, lty = 2, col = "black")
+text(x[length(x) - 12], y[length(y) - 12] - 0.3, expression(xi[k]), pos = 4)
+
+```
+
+
+Support Vector Regression expands support Vector Machines from discrete classification to a continuos regression model.
+
+For the regression task, instead of fitting a hyperplane, we are trying to fit a (multidimensional) function $f(x)$ to the data. Similar as in the classification task, we draw a margin around the function. However, now the margin $\varepsilon$ is fixed at the start. (Note that $\varepsilon$ here, is not the slack variable as in Hasties and Tibshirani, but rather defines the width of the margin. Also, we don't aim to optimize the margin anymore, but instead fix it before the computation starts). We want to find a function f(x) that is as flat as possible, while fitting all points into the required margin. Again, we allow for some slack using slack variables. A wider margin decreases the risk of overfitting, while a smaller margin captures more intricacies of the data. 
+
+Mathematically speaking, want to find a function $f(x)$ with $| f(x_i) - y_i |  \leq \varepsilon$ for all $i$. To avoid overfitting, we also introduce the constraint of making the function as flat as possible.
+"Flatness" in this context is a measure of how sensitive the function is to change. For a linear function $f(x) = x^\top \beta + b$ increasing this flatness can be expressed through minimizing the norm of the function gradient: $\lVert \beta \rVert$. Minimizing the expression $\frac{1}{2} \lVert \beta \rVert^2$ leads to the same optimum, while allowing for more elegant mathematical solutions, and is therefore used for computation.
+
+
+Again, we want to allow for some slack, so as in the SVM for classification, we are introducing slack variables $\xi_i$ and $\xi_i^\ast$. These slack variables allow for some room for margin violations. 
+The optimization problem we want to solve is to minimize: 
+
+$$
+\frac{1}{2} \lVert \beta \rVert^2 + K \sum_{i=1}^n (\xi_i + \xi_i^\ast)
+$$
+subject to:
+$$
+y_i - f(x_i) \leq \varepsilon + \xi_i, 
+$$
+$$
+f(x_i) - y_i \leq \varepsilon + \xi_i^\ast
+$$
+and 
+$$
+\xi_i > 0, \xi_i^\ast > 0 \quad \forall i
+$$
+
+
+where $K$ is fixed and $\beta$, $\xi$ and $\xi^\ast$ are variable.
+The factor $K$ is introduced as cost for regularization purposes. It is choosen a priori to determine how strong the tradeoff between flatness and overfitting should be. A larger $K$ leads to a stronger impact of the term, therefore penalizing stronger margin violations more heavily and resulting in a less flat function curve (higher bias, lower variance). Conversly, a smaller $K$ leads to a flatter curve (lower bias, higher variance).
+
+
+```{r, fig.width=10, fig.height=4, out.width='100%', fig.align='center'}
+# set.seed(123)
+
+
+# x <- seq(-10, 10, 0.5) + rnorm(length(seq(-10, 10, 0.5)), mean = 0, sd = 0.1)
+# y <- 1/170 * (x^3 - 3* x^2 - 70*x + 5 + rnorm(length(x), mean = 0, sd = 170))
+
+# library(e1071)
+
+# epsilon <- 1
+# cost <- 0.1
+
+# model <- svm(y ~ x, data = data.frame(x = x, y = y), epsilon = epsilon, cost = cost)
+# predictedY <- predict(model, data.frame(x = x))
+
+# plot(x, y)
+# lines(x, predictedY, col = "red")
+
+
+# # Add ε-tube
+# #polygon(
+# #  c(x, rev(x)),
+# #  c(predictedY + epsilon, rev(predictedY - epsilon)),
+# #  border = NA,
+# #  col = rgb(1, 0, 0, 0.15)
+# #)
+
+
+
+
+# epsilon <- 1
+# cost <- 1
+
+# model <- svm(y ~ x, data = data.frame(x = x, y = y), epsilon = epsilon, cost = cost)
+# predictedY <- predict(model, data.frame(x = x))
+
+# # plot(x, y)
+# lines(x, predictedY, col = "darkgreen")
+
+
+# # Add ε-tube
+# #polygon(
+# #  c(x, rev(x)),
+# #  c(predictedY + epsilon, rev(predictedY - epsilon)),
+# #  border = NA,
+# #  col = rgb(1, 0, 0, 0.15)
+# #)
+
+
+
+
+# epsilon <- 1
+# cost <- 10000
+
+# model <- svm(y ~ x, data = data.frame(x = x, y = y), epsilon = epsilon, cost = cost)
+# predictedY <- predict(model, data.frame(x = x))
+
+# # plot(x, y)
+# lines(x, predictedY, col = "blue")
+
+
+# # Add ε-tube
+# #polygon(
+# #  c(x, rev(x)),
+# #  c(predictedY + epsilon, rev(predictedY - epsilon)),
+# #  border = NA,
+# #  col = rgb(1, 0, 0, 0.15)
+# #)
+
+# legend("topright", legend = c(" K = 0.1", " K = 1", " K = 10000"), col = c("red", "darkgreen", "blue"), lty = 1)
+# title("Support Vector Regression for different costs")
+
+```
+
+
+
+As in the SVM for classification, this can be generalized to non-linear functions by transforming the features using kernels.
+
+
+
+
+## TODO: ADD the references here!!!
+
+
+
+
+
+
+
