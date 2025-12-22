@@ -1,0 +1,173 @@
+---
+title: "Support Vector Regression for Coffee Quality Prediction"
+author: "Luisa Kalkert"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r, echo=TRUE}
+
+
+# Read the data
+coffee_data <- read.csv("data/arabica_data_cleaned.csv")
+
+# Remove unnecessary columns
+coffee_data$Altitude <- NULL # redundant information with altitude_high_meters and altitude_low_meters columns
+coffee_data$Species <- NULL # All coffees belong to the Arabica genus
+coffee_data$Total.Cup.Points <- NULL # Linearly dependent from other columns
+
+# Summary of data
+summary(coffee_data)
+#head(coffee_data)
+
+# Target variable: Cupper.points -> How much did the taster like this coffee?
+p <- hist(coffee_data$Cupper.Points, xlim = c(5,10), breaks = seq(0,10,0.25))
+#print(p)
+
+
+# For categorical columns, get the number of unique values
+for (col in names(coffee_data)) {
+    print(paste(col, "has", length(unique(coffee_data[[col]])), "unique values"))
+}
+
+
+### Data Preprocessing and cleaning ###
+
+
+
+columns_to_use <- c(
+    "Number.of.Bags",
+    #"Year", # Badly formatted, remove
+    "Bag.Weight", # KG and pound mixed, so we need to convert to KG
+    "Variety", # Many rare varieties I think like 30, Remove or  consider the top 4 and name everything else "Other"
+    "Processing.Method", # 6 different variants
+    "Aroma",
+    "Flavor",
+    "Aftertaste",
+    "Acidity",
+    "Body",
+    "Balance",
+    "Uniformity",
+    "Clean.Cup",
+    "Sweetness",
+    "Cupper.Points", # Target variable
+    "Moisture",
+    "Category.One.Defects",
+    "Quakers",
+    #"Color", # 216 missinng values, remove
+    "Category.Two.Defects",
+    #"Expiration", # Only relevant with year, but year is badly formatted - remove
+    "altitude_mean_meters" # Impute missing values from region and country origins
+    # Include Country?
+)
+
+
+## Variety  TODO: FIXXXXX
+
+# Pool varieties into top 4 and everything else as "Other" to reduce the number of dummy variables
+top_4_varieties <- coffee_data$Variety[order(coffee_data$Variety, decreasing = TRUE)][1:4]
+
+coffee_data$Variety <- ifelse(coffee_data$Variety %in% top_4_varieties, coffee_data$Variety, "Other")
+coffee_data$Variety <- factor(coffee_data$Variety)
+
+
+## Processing Method
+
+# Impute missing values for processing method
+coffee_data$Processing.Method <- ifelse(coffee_data$Processing.Method == "", "Unknown", coffee_data$Processing.Method)
+coffee_data$Processing.Method <- factor(coffee_data$Processing.Method)
+
+# Get all missing values 
+missing_values <- colSums(is.na(coffee_data))
+print(missing_values)
+
+
+## Altitude
+
+# Many missing values for altitude_mean_meters -> impute from region? Continue here
+
+# If altitude_mean_meters is missing, use the mean altitude of all coffees from the same region to impute the missing values
+missing_altitude_indices <- which(is.na(coffee_data$altitude_mean_meters))
+
+for (i in missing_altitude_indices) {
+    region <- coffee_data$Region[i]
+    region_mean <- median(
+        coffee_data$altitude_median_meters[coffee_data$Region == region],
+        na.rm = TRUE
+    )
+    coffee_data$altitude_median_meters[i] <- region_mean
+}
+
+# Double Check if imputation worked
+# mean(coffee_data[coffee_data$Region == "kona", "altitude_mean_meters"])
+
+
+# Repeat for country of origin
+missing_altitude_indices <- which(is.na(coffee_data$altitude_median_meters))
+
+for (i in missing_altitude_indices) {
+    country <- coffee_data$Country.of.Origin[i]
+    country_mean <- mean(
+        coffee_data$altitude_median_meters[coffee_data$Country.of.Origin == country],
+        na.rm = TRUE
+    )
+    coffee_data$altitude_median_meters[i] <- country_mean
+}
+
+sum(is.na(coffee_data[,columns_to_use])) # 2 missing values left
+
+
+## Bag Weight
+
+# Get bags with weight in pounds
+bags_with_weight_in_pounds_indices <- grepl("lb", coffee_data$Bag.Weight)
+
+# TODO: JUST LEAVE IT OUT?
+coffee_data$Bag.Weight <- as.numeric(sub("^([^ ]+) .*", "\\1", coffee_data$Bag.Weight))
+coffee_data$Bag.Weight[bags_with_weight_in_pounds_indices] <- coffee_data$Bag.Weight[bags_with_weight_in_pounds_indices] * 0.453592
+
+
+
+# Remove rows with missing values
+coffee_data <- coffee_data[,columns_to_use]
+coffee_data <- coffee_data[complete.cases(coffee_data),]
+
+
+
+# Add One hot encoding for categorical variables
+coffee_data <- model.matrix(~ ., data = coffee_data)
+
+# Save as CSV
+write.csv(coffee_data, "data/arabica_data_cleaned_one_hot_encoded.csv", row.names = FALSE)
+
+```
+
+```{r, echo=TRUE}
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
