@@ -1,0 +1,151 @@
+---
+title: "Dynamic Reporting with RMarkdown"
+subtitle: "Universal Template (PDF, HTML, Word)"
+abstract: |
+  This document serves as a universal template. It is designed to be rendered 
+  into HTML, PDF, or MS Word without requiring changes to the code.
+  It demonstrates automatic table formatting and bibliography handling.
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+  html_document:
+    toc: true
+    number_sections: true
+    df_print: paged
+  word_document:
+    toc: true
+bibliography: references.bib
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# CLEAR ENVIRONMENT
+rm(list = ls(all.names = TRUE))
+
+# LOAD PACKAGES
+library(knitr)
+library(ggplot2)
+library(dplyr)
+
+# GLOBAL CHUNK OPTIONS
+# 'dev' checks if it's PDF to use high-quality rendering, otherwise standard
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  fig.align = "center",
+  fig.width = 6, 
+  fig.height = 4
+)
+
+# GGPLOT THEME
+theme_set(theme_minimal())  # check ?theme_bw for other themes available
+```
+
+\newpage
+
+# Introduction
+
+This report demonstrates how to write **one** RMarkdown file that compiles cleanly to PDF, HTML, and Word. We avoid using `kableExtra` or raw `<div>` tags, relying instead on pure Pandoc Markdown.
+
+# Tables
+
+To ensure tables look good in Word, PDF, and HTML simultaneously, we use `knitr::kable` with the markdown format.
+
+
+```{r simpleTable}
+head(mtcars[, 1:4]) |> 
+  kable(caption = "A Universal Table Example", 
+        format = "markdown")  # "markdown" format is safest for cross-compatibility
+
+```
+
+
+# Graphics
+
+## Standard Vector Graphics
+
+Standard graphics are rendered as vectors (in PDF) or high-quality images (HTML/Word) by default.
+
+Graphics can be embedded into the documents as shown below.
+
+### Package: base
+
+```{r baseGrafik, echo = FALSE, fig.cap="This is a **base** graphic"}
+pairs(iris[1:4], col = iris$Species)
+```
+
+### Package: ggplot2
+
+See the cheat sheet for ggplot2 graphics for details: https://posit.co/wp-content/uploads/2022/10/data-visualization-1.pdf
+
+```{r ggplotGrafik, echo = FALSE, fig.cap=paste0("**ggplot** graphic. Captions with dynamic content are also possible, e.g., Date and Time: ", as.character(Sys.time())), fig.align='center'}
+ggplot(iris, aes(x = Sepal.Width, y = Petal.Width)) + 
+  geom_point(aes(color = Species))
+
+```
+
+The use of chunk options to set captions allows for dynamic numbering and list of figures generation. This works also for `base` graphics (see above). Check the chunk option `fig.asp=0.5` that is responsible for the altered aspect ratio.
+
+```{r ggplotGrafikAspectChanged, echo = TRUE, fig.cap="**ggplot** graphic with different aspect ratio.", fig.align='center', fig.asp = 0.33}
+ggplot(iris, aes(x = Sepal.Width, y = Petal.Width)) +
+  geom_point(aes(color = Species)) 
+```
+
+## Large Datasets & Rasterization
+
+When plotting datasets with thousands of points (like the `diamonds` dataset), vector graphics can make the final file huge and slow to load.
+
+To solve this, we use the chunk option `dev='png'` and `dpi=300`. This forces this specific plot to render as a flat image (raster), keeping the document size small while maintaining transparency.
+
+```{r heavyPlot, dev='png', dpi=300, fig.cap="Figure 2: Rasterized plot (PNG) of 50,000+ points."}
+# The 'alpha' parameter adds transparency to reveal density
+diamonds %>% 
+ggplot(aes(x = carat, y = price, color = cut)) +
+  geom_point(alpha = 0.1) + 
+  labs(title = "Diamonds: Price vs Carat",
+       subtitle = "50,000+ points rendered as PNG to save space",
+       x = "Carat", 
+       y = "Price") +
+  theme(legend.position = "bottom")
+```
+
+# Summary Statistics
+
+We can also include raw text outputs, which are rendered as code blocks in all formats.
+
+```{r summaryStats}
+summary(mtcars$mpg)
+
+```
+
+# Citations
+
+The information about the citations used are stored in `bibtex` style in the additional file `references.bib` which the last line of the YAML header is referencing to.
+
+You can cite entries using the syntax `[@key]`.
+
+We are using the **knitr** package [@R-knitr] for processing and **ggplot2** [@R-ggplot2] for visualization. References will be placed automatically at the end of the document or where we specify the placement div.
+
+There are alternative ways to cite:
+
+- Indirect citation: This report was built using the knitr package [@R-knitr].
+- Direct citation: @R-ggplot2 describes the grammar of graphics.
+- Multiple citations: RMarkdown is powerful [@R-rmarkdown; @R-knitr].
+
+# Literature
+
+<div id="refs"></div>
+
+# Appendix
+
+## Appendix A: System Information
+
+Because we placed the `<div id="refs"></div>` above, this Appendix will correctly appear **after** the references in the final document.
+
+```{r sessionInfo}
+sessionInfo()
+
+```
+
