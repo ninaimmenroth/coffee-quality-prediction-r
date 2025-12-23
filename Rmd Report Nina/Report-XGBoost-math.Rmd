@@ -1,0 +1,99 @@
+---
+title: "Mathematical Background XGBoost"
+subtitle: "by Nina Immenroth"
+abstract: |
+  This is a short section about the mathematical background of XGBoost. To be added as a subsection of the report on Coffee Quality Prediction for the course ML2.
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+  html_document:
+    toc: true
+    number_sections: true
+    df_print: paged
+  word_document:
+    toc: true
+bibliography: references.bib
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# CLEAR ENVIRONMENT
+rm(list = ls(all.names = TRUE))
+
+# LOAD PACKAGES
+library(knitr)
+library(ggplot2)
+library(dplyr)
+
+# GLOBAL CHUNK OPTIONS
+# 'dev' checks if it's PDF to use high-quality rendering, otherwise standard
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  fig.align = "center",
+  fig.width = 6, 
+  fig.height = 4
+)
+
+# GGPLOT THEME
+theme_set(theme_minimal())  # check ?theme_bw for other themes available
+```
+
+\newpage
+
+# XGBoost
+
+XGBoost is an algorithm based on gradient boosted trees and second-order approximation [@chen2016xgboost]. It is widely used in machine learning due to its flexibility and strong empirical performance. These properties arise from a combination of algorithmic and systems-level optimizations, including efficient handling of sparse input data, approximate tree construction via weighted quantile sketches, and parallelized tree learning. In addition, careful optimization of memory access, data compression, and out-of-core computation enables the method to scale to very large datasets while maintaining computational efficiency.
+
+This section describes the mathematical foundations of the algorithm, namely ensemble methods, regularization, and gradient boosting machines combined with second order approximation. 
+
+## Tree Ensembles and Regularization
+
+XGBoost models the prediction as an additive ensemble of $K$ functions:
+$$
+\hat{y}_i = \sum_{k=1}^{K} f_k(x_i), \quad f_k \in \mathcal{F},
+$$
+where each $f_k$ is a regression tree belonging to the function space $\mathcal{F}$ [@chen2016xgboost; @james2021introduction]. Each tree acts as a weak learner that partitions the feature space into disjoint regions and assigns a constant prediction to each leaf [@james2021introduction].
+
+The model is trained by minimizing a regularized objective function of the form
+$$
+\mathcal{L} = \sum_{i} \ell(y_i, \hat{y}_i) + \sum_{k=1}^{K} \Omega(f_k),
+$$
+where $\ell(\cdot)$ is a differentiable loss function and $\Omega(f)$ is a regularization term that penalizes model complexity [@chen2016xgboost]. This term is defined as
+$$
+\Omega(f) = \gamma T + \frac{1}{2} \lambda \sum_{j=1}^{T} w_j^2,
+$$
+with $T$ denoting the number of leaves in the tree and $w_j$ the weight of leaf $j$. The regularization term encourages simpler trees and smooth leaf weights, helping to prevent overfitting.
+
+The ensemble structure allows the model to reduce bias by combining multiple weak learners, while regularization controls variance by limiting tree complexity and the magnitude of leaf weights [@james2021introduction]. This balance between bias and variance enables XGBoost to achieve strong predictive performance while maintaining good generalization.
+
+## Gradient Boosting Machines
+
+The tree ensemble is constructed in a stage-wise manner, where weak learners are added iteratively to improve the model [@friedman2001greedy]. At iteration $t$, the prediction is given by
+$$
+\hat{y}_i^{(t)} = \hat{y}_i^{(t-1)} + f_t(x_i),
+$$
+with $f_t \in \mathcal{F}$ denoting the newly added regression tree.
+
+Gradient tree boosting can be interpreted as gradient descent in function space, where each new learner is chosen to minimize the loss function in the direction of the negative gradient [@friedman2001greedy]. Specifically, the new tree at iteration $t$ is trained to fit the negative first order gradient
+$$
+-g_i^{(t)} = -\left. \frac{\partial \ell(y_i, \hat{y})}{\partial \hat{y}} \right|_{\hat{y} = \hat{y}_i^{(t-1)}}.
+$$
+
+XGBoost extends this framework by explicitly approximating the objective function using a second-order Taylor expansion of the loss around the current predictions:
+$$
+\ell(y_i, \hat{y}_i^{(t-1)} + f_t(x_i)) \approx \ell(y_i, \hat{y}_i^{(t-1)}) + g_i f_t(x_i) + \frac{1}{2} h_i f_t(x_i)^2,
+$$
+where
+$$
+h_i = \left. \frac{\partial^2 \ell(y_i, \hat{y})}{\partial \hat{y}^2} \right|_{\hat{y} = \hat{y}_i^{(t-1)}}
+$$
+is the second order derivative of the loss [@chen2016xgboost]. By incorporating both first- and second-order information, XGBoost enables efficient optimization of tree structures and leaf weights within each boosting iteration.
+
+
+# Literature
+
+<div id="refs"></div>
+
