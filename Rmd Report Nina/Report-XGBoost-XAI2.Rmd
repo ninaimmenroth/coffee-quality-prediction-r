@@ -1,0 +1,54 @@
+---
+title: "XGBoost - XAI Part 2 (ALE&SHAP)"
+subtitle: "by Nina Immenroth"
+abstract: |
+  This is an analysis of the prediction with XGBoost using techniques of XAI (ALE and SHAP). To be added as a subsection of the report on Coffee Quality Prediction for the course ML2.
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+  html_document:
+    toc: true
+    number_sections: true
+    df_print: paged
+  word_document:
+    toc: true
+bibliography: references.bib
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# CLEAR ENVIRONMENT
+rm(list = ls(all.names = TRUE))
+
+# LOAD PACKAGES
+library(knitr)
+library(ggplot2)
+library(dplyr)
+
+# GLOBAL CHUNK OPTIONS
+# 'dev' checks if it's PDF to use high-quality rendering, otherwise standard
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  fig.align = "center",
+  fig.width = 6, 
+  fig.height = 4
+)
+
+# GGPLOT THEME
+theme_set(theme_minimal())  # check ?theme_bw for other themes available
+```
+
+\newpage
+
+# XGBoost - XAI Part 2 (ALE&SHAP)
+
+
+
+
+# Literature
+
+<div id="refs"></div>
+
