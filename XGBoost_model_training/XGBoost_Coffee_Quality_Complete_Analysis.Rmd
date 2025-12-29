@@ -6,17 +6,18 @@ abstract: |
   XGBoost regression to predict Cupper Points (expert quality scores). The analysis 
   compares multiple feature sets (Sensory, Extended, Full), evaluates baseline models, 
   and documents both successful approaches and those found less effective (Lambda/Min_Child_Weight 
-  regularization, Bayesian Optimization). Key finding: sensory features dominate prediction, 
   with XGBoost providing modest but statistically significant improvements over Linear Regression.
+  regularization, Bayesian Optimization). Key finding: sensory features dominate prediction, 
 date: "`r Sys.Date()`"
 output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    number_sections: true
   html_document:
     toc: true
     number_sections: true
     df_print: paged
-  pdf_document:
-    toc: true
-    number_sections: true
   word_document:
     toc: true
 ---
@@ -33,6 +34,8 @@ library(ggplot2)
 library(gridExtra)
 library(knitr)
 library(stringr)
+library(here)
+
 
 # GLOBAL CHUNK OPTIONS
 knitr::opts_chunk$set(
@@ -90,7 +93,7 @@ kable(config, caption = "Analysis Configuration", format = "markdown")
 ## Load Data
 
 ```{r load-data}
-coffee_raw <- read.csv("arabica_data_cleaned.csv")
+coffee_raw <- read.csv(here("arabica_data_cleaned.csv"))
 cat("Raw data:", nrow(coffee_raw), "rows,", ncol(coffee_raw), "columns\n")
 ```
 
