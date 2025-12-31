@@ -1,0 +1,424 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{5}
+% definitions for citeproc citations
+\NewDocumentCommand\citeproctext{}{}
+\NewDocumentCommand\citeproc{mm}{%
+  \begingroup\def\citeproctext{#2}\cite{#1}\endgroup}
+\makeatletter
+ % allow citations to break across lines
+ \let\@cite@ofmt\@firstofone
+ % avoid brackets around text for \cite:
+ \def\@biblabel#1{}
+ \def\@cite#1#2{{#1\if@tempswa , #2\fi}}
+\makeatother
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newenvironment{CSLReferences}[2] % #1 hanging-indent, #2 entry-spacing
+ {\begin{list}{}{%
+  \setlength{\itemindent}{0pt}
+  \setlength{\leftmargin}{0pt}
+  \setlength{\parsep}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1
+   \setlength{\leftmargin}{\cslhangindent}
+   \setlength{\itemindent}{-1\cslhangindent}
+  \fi
+  % set entry spacing
+  \setlength{\itemsep}{#2\baselineskip}}}
+ {\end{list}}
+\usepackage{calc}
+\newcommand{\CSLBlock}[1]{\hfill\break\parbox[t]{\linewidth}{\strut\ignorespaces#1\strut}}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{\strut#1\strut}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{\strut#1\strut}}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Dynamic Reporting with RMarkdown},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Dynamic Reporting with RMarkdown}
+\usepackage{etoolbox}
+\makeatletter
+\providecommand{\subtitle}[1]{% add subtitle to \maketitle
+  \apptocmd{\@title}{\par {\large #1 \par}}{}{}
+}
+\makeatother
+\subtitle{Universal Template (PDF, HTML, Word)}
+\author{}
+\date{\vspace{-2.5em}2025-12-30}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+This document serves as a universal template. It is designed to be
+rendered into HTML, PDF, or MS Word without requiring changes to the
+code. It demonstrates automatic table formatting and bibliography
+handling.
+\end{abstract}
+
+{
+\setcounter{tocdepth}{2}
+\tableofcontents
+}
+\newpage
+
+\section{Introduction}\label{introduction}
+
+This report demonstrates how to write \textbf{one} RMarkdown file that
+compiles cleanly to PDF, HTML, and Word. We avoid using
+\texttt{kableExtra} or raw \texttt{\textless{}div\textgreater{}} tags,
+relying instead on pure Pandoc Markdown.
+
+\section{Tables}\label{tables}
+
+To ensure tables look good in Word, PDF, and HTML simultaneously, we use
+\texttt{knitr::kable} with the markdown format.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{head}\NormalTok{(mtcars[, }\DecValTok{1}\SpecialCharTok{:}\DecValTok{4}\NormalTok{]) }\SpecialCharTok{|\textgreater{}} 
+  \FunctionTok{kable}\NormalTok{(}\AttributeTok{caption =} \StringTok{"A Universal Table Example"}\NormalTok{, }
+        \AttributeTok{format =} \StringTok{"markdown"}\NormalTok{)  }\CommentTok{\# "markdown" format is safest for cross{-}compatibility}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lrrrr@{}}
+\caption{A Universal Table Example}\tabularnewline
+\toprule\noalign{}
+& mpg & cyl & disp & hp \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+& mpg & cyl & disp & hp \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Mazda RX4 & 21.0 & 6 & 160 & 110 \\
+Mazda RX4 Wag & 21.0 & 6 & 160 & 110 \\
+Datsun 710 & 22.8 & 4 & 108 & 93 \\
+Hornet 4 Drive & 21.4 & 6 & 258 & 110 \\
+Hornet Sportabout & 18.7 & 8 & 360 & 175 \\
+Valiant & 18.1 & 6 & 225 & 105 \\
+\end{longtable}
+
+\section{Graphics}\label{graphics}
+
+\subsection{Standard Vector Graphics}\label{standard-vector-graphics}
+
+Standard graphics are rendered as vectors (in PDF) or high-quality
+images (HTML/Word) by default.
+
+Graphics can be embedded into the documents as shown below.
+
+\subsubsection{Package: base}\label{package-base}
+
+\begin{figure}
+
+{\centering \includegraphics{Report_files/figure-latex/baseGrafik-1} 
+
+}
+
+\caption{This is a **base** graphic}\label{fig:baseGrafik}
+\end{figure}
+
+\subsubsection{Package: ggplot2}\label{package-ggplot2}
+
+See the cheat sheet for ggplot2 graphics for details:
+\url{https://posit.co/wp-content/uploads/2022/10/data-visualization-1.pdf}
+
+\begin{figure}
+
+{\centering \includegraphics{Report_files/figure-latex/ggplotGrafik-1} 
+
+}
+
+\caption{**ggplot** graphic. Captions with dynamic content are also possible, e.g., Date and Time: 2025-12-30 00:33:47.738028}\label{fig:ggplotGrafik}
+\end{figure}
+
+The use of chunk options to set captions allows for dynamic numbering
+and list of figures generation. This works also for \texttt{base}
+graphics (see above). Check the chunk option \texttt{fig.asp=0.5} that
+is responsible for the altered aspect ratio.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(iris, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ Sepal.Width, }\AttributeTok{y =}\NormalTok{ Petal.Width)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{color =}\NormalTok{ Species)) }
+\end{Highlighting}
+\end{Shaded}
+
+\begin{figure}
+
+{\centering \includegraphics{Report_files/figure-latex/ggplotGrafikAspectChanged-1} 
+
+}
+
+\caption{**ggplot** graphic with different aspect ratio.}\label{fig:ggplotGrafikAspectChanged}
+\end{figure}
+
+\subsection{Large Datasets \&
+Rasterization}\label{large-datasets-rasterization}
+
+When plotting datasets with thousands of points (like the
+\texttt{diamonds} dataset), vector graphics can make the final file huge
+and slow to load.
+
+To solve this, we use the chunk option
+\texttt{dev=\textquotesingle{}png\textquotesingle{}} and
+\texttt{dpi=300}. This forces this specific plot to render as a flat
+image (raster), keeping the document size small while maintaining
+transparency.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# The \textquotesingle{}alpha\textquotesingle{} parameter adds transparency to reveal density}
+\NormalTok{diamonds }\SpecialCharTok{\%\textgreater{}\%} 
+\FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ carat, }\AttributeTok{y =}\NormalTok{ price, }\AttributeTok{color =}\NormalTok{ cut)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_point}\NormalTok{(}\AttributeTok{alpha =} \FloatTok{0.1}\NormalTok{) }\SpecialCharTok{+} 
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Diamonds: Price vs Carat"}\NormalTok{,}
+       \AttributeTok{subtitle =} \StringTok{"50,000+ points rendered as PNG to save space"}\NormalTok{,}
+       \AttributeTok{x =} \StringTok{"Carat"}\NormalTok{, }
+       \AttributeTok{y =} \StringTok{"Price"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{legend.position =} \StringTok{"bottom"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{figure}
+
+{\centering \includegraphics{Report_files/figure-latex/heavyPlot-1} 
+
+}
+
+\caption{Figure 2: Rasterized plot (PNG) of 50,000+ points.}\label{fig:heavyPlot}
+\end{figure}
+
+\section{Summary Statistics}\label{summary-statistics}
+
+We can also include raw text outputs, which are rendered as code blocks
+in all formats.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{summary}\NormalTok{(mtcars}\SpecialCharTok{$}\NormalTok{mpg)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##   10.40   15.43   19.20   20.09   22.80   33.90
+\end{verbatim}
+
+\section{Citations}\label{citations}
+
+The information about the citations used are stored in \texttt{bibtex}
+style in the additional file \texttt{references.bib} which the last line
+of the YAML header is referencing to.
+
+You can cite entries using the syntax \texttt{{[}@key{]}}.
+
+We are using the \textbf{knitr} package (Xie 2025) for processing and
+\textbf{ggplot2} (Wickham et al. 2025) for visualization. References
+will be placed automatically at the end of the document or where we
+specify the placement div.
+
+There are alternative ways to cite:
+
+\begin{itemize}
+\tightlist
+\item
+  Indirect citation: This report was built using the knitr package (Xie
+  2025).
+\item
+  Direct citation: Wickham et al. (2025) describes the grammar of
+  graphics.
+\item
+  Multiple citations: RMarkdown is powerful (Allaire et al. 2025; Xie
+  2025).
+\end{itemize}
+
+\section{Literature}\label{literature}
+
+\phantomsection\label{refs}
+\begin{CSLReferences}{1}{0}
+\bibitem[\citeproctext]{ref-R-rmarkdown}
+Allaire, JJ, Yihui Xie, Christophe Dervieux, Jonathan McPherson, Javier
+Luraschi, Kevin Ushey, Aron Atkins, et al. 2025. \emph{Rmarkdown:
+Dynamic Documents for r}. \url{https://github.com/rstudio/rmarkdown}.
+
+\bibitem[\citeproctext]{ref-R-ggplot2}
+Wickham, Hadley, Winston Chang, Lionel Henry, Thomas Lin Pedersen,
+Kohske Takahashi, Claus Wilke, Kara Woo, Hiroaki Yutani, Dewey
+Dunnington, and Teun van den Brand. 2025. \emph{Ggplot2: Create Elegant
+Data Visualisations Using the Grammar of Graphics}.
+\url{https://ggplot2.tidyverse.org}.
+
+\bibitem[\citeproctext]{ref-R-knitr}
+Xie, Yihui. 2025. \emph{Knitr: A General-Purpose Package for Dynamic
+Report Generation in r}. \url{https://yihui.org/knitr/}.
+
+\end{CSLReferences}
+
+\section{Appendix}\label{appendix}
+
+\subsection{Appendix A: System
+Information}\label{appendix-a-system-information}
+
+Because we placed the
+\texttt{\textless{}div\ id="refs"\textgreater{}\textless{}/div\textgreater{}}
+above, this Appendix will correctly appear \textbf{after} the references
+in the final document.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{sessionInfo}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## R version 4.4.1 (2024-06-14 ucrt)
+## Platform: x86_64-w64-mingw32/x64
+## Running under: Windows 11 x64 (build 22621)
+## 
+## Matrix products: default
+## 
+## 
+## locale:
+## [1] LC_COLLATE=English_United States.utf8 
+## [2] LC_CTYPE=English_United States.utf8   
+## [3] LC_MONETARY=English_United States.utf8
+## [4] LC_NUMERIC=C                          
+## [5] LC_TIME=English_United States.utf8    
+## 
+## time zone: Europe/Paris
+## tzcode source: internal
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] dplyr_1.1.4   ggplot2_3.5.2 knitr_1.50   
+## 
+## loaded via a namespace (and not attached):
+##  [1] vctrs_0.6.5       cli_3.6.4         rlang_1.1.6       xfun_0.52        
+##  [5] generics_0.1.3    labeling_0.4.3    glue_1.8.0        colorspace_2.1-1 
+##  [9] htmltools_0.5.8.1 scales_1.3.0      rmarkdown_2.29    grid_4.4.1       
+## [13] evaluate_1.0.3    munsell_0.5.1     tibble_3.2.1      fastmap_1.2.0    
+## [17] yaml_2.3.10       lifecycle_1.0.4   compiler_4.4.1    pkgconfig_2.0.3  
+## [21] rstudioapi_0.17.1 farver_2.1.2      digest_0.6.37     viridisLite_0.4.2
+## [25] R6_2.6.1          tidyselect_1.2.1  pillar_1.10.2     magrittr_2.0.3   
+## [29] withr_3.0.2       tools_4.4.1       gtable_0.3.6
+\end{verbatim}
+
+\end{document}

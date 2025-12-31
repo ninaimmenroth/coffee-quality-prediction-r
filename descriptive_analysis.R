@@ -23,13 +23,13 @@ summary(coffee_data)
 colSums(is.na(coffee_data))
 
 
-#Visualization
+#Visualization -Distribution of Total Coffee Quality Scores
 ggplot(coffee_data, aes(x = Total.Cup.Points)) +
   geom_density(fill = '#6F4E37', alpha = 0.7) +
   theme_minimal() +
   labs(title = 'Distribution of Total Coffee Quality Scores', x = 'Total Cup Points', y = 'Density')
 
-#Visualization
+#Visualization -Distribution of Cupper Points
 ggplot(coffee_data, aes(x = Cupper.Points)) +
   geom_density(fill = '#6F4E37', alpha = 0.7) +
   theme_minimal() +
@@ -61,7 +61,7 @@ corrplot(M, method = "color", type = "upper",
          title = "Correlation Between Sensory Attributes")
 
 
-# Top 10 countries by FREQUENCY in the dataset
+# Find the Top 10 countries by FREQUENCY in the dataset
 top_countries <- coffee_data %>%
   count(Country.of.Origin, sort = TRUE) %>%
   top_n(10) %>%
