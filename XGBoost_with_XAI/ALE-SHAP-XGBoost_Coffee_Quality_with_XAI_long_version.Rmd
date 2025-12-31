@@ -24,7 +24,7 @@ fontsize: 11pt
 geometry: margin=1in
 ---
 
-```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+```{r setup, message=FALSE, warning=FALSE}
 # CLEAR ENVIRONMENT
 rm(list = ls(all.names = TRUE))
 
@@ -37,6 +37,7 @@ library(gridExtra)
 library(knitr)
 library(stringr)
 library(here)
+library(shapviz)
 
 # GLOBAL CHUNK OPTIONS
 knitr::opts_chunk$set(
@@ -77,7 +78,7 @@ This comprehensive report analyzes coffee quality prediction using XGBoost regre
 
 ## Configuration
 
-```{r config, echo=FALSE}
+```{r config}
 config <- data.frame(
   Parameter = c("Random Seed", "Cross-Validation Folds", "Train/Test Split", 
                 "Early Stopping Rounds", "Max Boosting Rounds"),
@@ -242,7 +243,7 @@ cat("Leakage columns removed: Total.Cup.Points, Altitude, Species, Harvest.Year,
 
 ## Feature Descriptions
 
-```{r feature-desc, echo=FALSE}
+```{r feature-desc}
 feature_desc <- data.frame(
   Feature = c("Aroma", "Flavor", "Aftertaste", "Acidity", "Body", "Balance",
               "Uniformity", "Clean.Cup", "Sweetness", "Moisture", 
@@ -267,7 +268,7 @@ kable(feature_desc, caption = "Sensory Feature Descriptions", format = "markdown
 
 ## Target Variable Analysis
 
-```{r target-stats, echo=FALSE}
+```{r target-stats}
 sensory_cols <- c("Aroma", "Flavor", "Aftertaste", "Acidity", "Body", 
                   "Balance", "Uniformity", "Clean.Cup", "Sweetness", 
                   "Moisture", "Category.One.Defects", "Quakers")
@@ -286,7 +287,7 @@ target_stats <- data.frame(
 kable(target_stats, caption = "Target Variable (Cupper.Points) Summary", format = "markdown")
 ```
 
-```{r target-histogram, echo=FALSE, fig.cap="Distribution of Cupper Points. Red dashed line indicates mean."}
+```{r target-histogram, fig.cap="Distribution of Cupper Points. Red dashed line indicates mean."}
 ggplot(coffee_raw, aes(x = Cupper.Points)) +
   geom_histogram(bins = 30, fill = "#2E86AB", color = "white", alpha = 0.8) +
   geom_vline(xintercept = mean(coffee_raw$Cupper.Points, na.rm = TRUE), 
@@ -296,7 +297,7 @@ ggplot(coffee_raw, aes(x = Cupper.Points)) +
 
 ## Correlation Analysis
 
-```{r correlation-table, echo=FALSE}
+```{r correlation-table}
 numeric_cols <- coffee_raw[, c(sensory_cols, "Cupper.Points")]
 numeric_cols <- numeric_cols[complete.cases(numeric_cols), ]
 
@@ -312,7 +313,7 @@ corr_df <- data.frame(
 kable(corr_df, caption = "Feature Correlations with Cupper.Points", format = "markdown")
 ```
 
-```{r correlation-barplot, echo=FALSE, fig.cap="Feature correlations with Cupper Points."}
+```{r correlation-barplot, fig.cap="Feature correlations with Cupper Points."}
 ggplot(corr_df, aes(x = reorder(Feature, Correlation), y = Correlation, 
                     fill = Correlation > 0)) +
   geom_col(alpha = 0.8) +
@@ -323,7 +324,7 @@ ggplot(corr_df, aes(x = reorder(Feature, Correlation), y = Correlation,
   geom_hline(yintercept = 0, linetype = "dashed")
 ```
 
-```{r correlation-heatmap, echo=FALSE, fig.cap="Correlation heatmap of sensory features and target variable.", fig.width=10, fig.height=8}
+```{r correlation-heatmap, fig.cap="Correlation heatmap of sensory features and target variable.", fig.width=10, fig.height=8}
 cor_matrix <- cor(numeric_cols)
 cor_melted <- as.data.frame(as.table(cor_matrix))
 names(cor_melted) <- c("Var1", "Var2", "Correlation")
@@ -358,7 +359,7 @@ full_cols <- c(extended_cols,
                "Number.of.Bags", "In.Country.Partner")
 ```
 
-```{r feature-sets-table, echo=FALSE}
+```{r feature-sets-table}
 feature_sets <- data.frame(
   Feature.Set = c("Sensory", "Extended", "Full"),
   N.Features = c(length(sensory_cols), length(extended_cols), length(full_cols)),
@@ -415,7 +416,7 @@ set.seed(SEED + 42)
 fold_ids <- sample(rep(1:K_FOLDS, length.out = n))
 ```
 
-```{r split-summary, echo=FALSE}
+```{r split-summary}
 split_summary <- data.frame(
   Set = c("Training", "Test", "Total"),
   Observations = c(length(train_idx), length(test_idx), n),
@@ -494,7 +495,7 @@ cat("Linear Regression Test RMSE:", round(metrics_lm$RMSE, 4), "\n")
 cat("Linear Regression Test R²:", round(metrics_lm$R2, 4), "\n")
 ```
 
-```{r lm-coefficients, echo=FALSE}
+```{r lm-coefficients}
 lm_coefs <- summary(model_lm)$coefficients
 lm_coefs_df <- data.frame(
   Feature = rownames(lm_coefs),
@@ -614,7 +615,7 @@ plot(pfi_xgb_full, max_vars = 20) +
 
 ### PFI Results Table
 
-```{r pfi-table, echo=FALSE}
+```{r pfi-table}
 # Extract and format PFI results
 pfi_results <- pfi_xgb_full %>%
   filter(variable != "_baseline_" & variable != "_full_model_") %>%
@@ -640,7 +641,7 @@ kable(head(pfi_results[, c("Rank", "variable", "Importance", "SD")], 15),
 
 ### PFI Interpretation
 
-```{r pfi-interpretation, echo=FALSE}
+```{r pfi-interpretation}
 # Identify top 5 features
 top5_features <- head(pfi_results$variable, 5)
 top5_importance <- head(pfi_results$Importance, 5)
@@ -742,7 +743,7 @@ if (length(top_sensory_pfi) >= 2) {
 
 ### PDP Interpretation
 
-```{r pdp-interpretation, echo=FALSE}
+```{r pdp-interpretation}
 cat("KEY PDP FINDINGS:\n")
 cat("================\n\n")
 
@@ -770,7 +771,7 @@ cat("The PDP curves show the 'shape' of each relationship (linear, monotonic, co
 
 ### Feature Importance from PDP (Variance-based)
 
-```{r pdp-importance, echo=FALSE}
+```{r pdp-importance}
 # Calculate importance from PDP as variance of PDP values
 pdp_variance_importance <- data.frame(
   Feature = character(),
@@ -809,7 +810,7 @@ We use DALEX's **Break Down** method, which decomposes a prediction into feature
 
 ### Select Observations for Explanation
 
-```{r micro-select-obs, echo=FALSE}
+```{r micro-select-obs}
 # Select interesting observations from test set
 # 1. Best prediction (closest to actual)
 # 2. Worst prediction (furthest from actual)
@@ -881,7 +882,7 @@ grid.arrange(p_best, p_median, p_worst, ncol = 1)
 
 ### Microscopic Explanation Tables
 
-```{r micro-tables, echo=FALSE}
+```{r micro-tables}
 # Extract top contributions for each observation
 extract_top_contributions <- function(bd_result, n = 8) {
   bd_df <- as.data.frame(bd_result)
@@ -914,7 +915,7 @@ kable(extract_top_contributions(bd_worst),
 
 ### Key Findings from PFI
 
-```{r summary-pfi, echo=FALSE}
+```{r summary-pfi}
 cat("PERMUTATION FEATURE IMPORTANCE SUMMARY\n")
 cat("======================================\n\n")
 
@@ -932,7 +933,7 @@ cat("This confirms that expert taste evaluation drives predictions.\n")
 
 ### Key Findings from PDP
 
-```{r summary-pdp, echo=FALSE}
+```{r summary-pdp}
 cat("\nPARTIAL DEPENDENCE PLOT SUMMARY\n")
 cat("===============================\n\n")
 
@@ -951,7 +952,7 @@ cat("  - This aligns with domain knowledge about coffee quality\n")
 
 ### Comparison: PFI vs PDP-derived Importance
 
-```{r summary-comparison, echo=FALSE, fig.cap="Comparison of feature importance rankings from PFI and PDP variance. Consistent rankings indicate robust importance estimates.", fig.width=8, fig.height=5}
+```{r summary-comparison, fig.cap="Comparison of feature importance rankings from PFI and PDP variance. Consistent rankings indicate robust importance estimates.", fig.width=8, fig.height=5}
 # Create comparison for features present in both analyses
 comparison_methods <- pdp_variance_importance %>%
   left_join(
@@ -994,7 +995,7 @@ ggplot(comparison_long2, aes(x = Feature, y = Rank, color = Method, group = Meth
 
 ### Practical Implications
 
-```{r practical-implications, echo=FALSE}
+```{r practical-implications}
 cat("\nPRACTICAL IMPLICATIONS\n")
 cat("======================\n\n")
 
@@ -1041,7 +1042,6 @@ cat("Calculating ALE for top 6 features:\n")
 cat(paste("  -", top_features, collapse = "\n"), "\n")
 
 # Calculate ALE for each top feature
-# Note: This can take a few minutes for large datasets
 set.seed(SEED)
 ale_plots <- lapply(top_features, function(feature) {
   cat("  Processing:", feature, "...\n")
@@ -1052,11 +1052,10 @@ ale_plots <- lapply(top_features, function(feature) {
     N = 1000               # Sample 1000 observations for efficiency
   )
 })
-# Manual correction so that ALE plots are centered around 0 which should be the default 
-#ale_plots$agr_profiles$`_yhat_` <- ale_plots$agr_profiles$`_yhat_` - mean(ale_plots$agr_profiles$`_yhat_`)
-    
+
 names(ale_plots) <- top_features
 
+# Manual correction so that ALE plots are centered around 0 which should be the default 
 ale_plots <- lapply(ale_plots, function(mp) {
   mp$agr_profiles$`_yhat_` <-
     mp$agr_profiles$`_yhat_` - mean(mp$agr_profiles$`_yhat_`)
@@ -1088,7 +1087,7 @@ do.call(grid.arrange, c(ale_plot_list, ncol = 2))
 ```
 
 ### ALE Interpretation Guide
-```{r ale-interpretation, echo=FALSE, results='asis'}
+```{r ale-interpretation, results='asis'}
 cat("
 **How to read ALE plots:**
 
@@ -1109,7 +1108,7 @@ cat("
 ```
 
 ### ALE Summary Statistics
-```{r ale-summary, echo=FALSE}
+```{r ale-summary}
 # Extract summary statistics for ALE plots
 ale_summary <- data.frame(
   Feature = character(),
@@ -1140,7 +1139,7 @@ kable(ale_summary,
 ```
 
 ### Key Insights from ALE
-```{r ale-insights, echo=FALSE, results='asis'}
+```{r ale-insights, results='asis'}
 # Identify features with largest effect ranges
 largest_range <- ale_summary[which.max(ale_summary$Range), ]
 most_variable <- ale_summary[which.max(ale_summary$Mean_Abs_Effect), ]
@@ -1180,4 +1179,128 @@ Key properties of SHAP:
 - **Model-agnostic**: Works with any machine learning model
 
 The intuition: SHAP answers "How much did each feature contribute to this specific prediction?"
+
+```{r shap-microscopic}
+set.seed(SEED)
+# Find observation where flavor is closest to your target value - values 0.0, 10.0
+target_val_flav <- 10.0
+
+# Get the column index for flavor
+flavor_col <- which(colnames(X_full_train) == "Flavor")
+
+# Find observation closest to target value
+obs_id <- which.min(abs(X_full_train[, flavor_col] - target_val_flav))
+
+# Extract the observation as a numeric matrix row
+new_obs_matrix <- X_full_train[obs_id, , drop = FALSE]
+
+# Ensure it's numeric
+storage.mode(new_obs_matrix) <- "numeric"
+
+# Convert to data frame for predict_parts
+new_obs <- as.data.frame(new_obs_matrix)
+
+cat(paste0("Testing Observation #", obs_id, " where Flavor = ", 
+           round(X_full_train[obs_id, flavor_col], 2), "\n"))
+
+# Run SHAP for this observation
+shap <- predict_parts(explainer = explainer_xgb_full,
+                      new_observation = new_obs, 
+                      type = "shap", B = 25)
+plot(shap) + ggtitle(paste("Flavor target =", target_val_flav))
+```
+```{r, shap-micro-two, fig.width=12, fig.height=8}
+set.seed(SEED)
+
+# Target flavor values
+target_vals <- c(0.0, 10.0)
+
+# Get the column index for flavor
+flavor_col <- which(colnames(X_full_train) == "Flavor")
+
+shap_plots <- vector("list", length(target_vals))
+
+for (i in seq_along(target_vals)) {
+  
+  target_val_flav <- target_vals[i]
+  
+  # Find observation closest to target value
+  obs_id <- which.min(abs(X_full_train[, flavor_col] - target_val_flav))
+  
+  # Extract observation
+  new_obs_matrix <- X_full_train[obs_id, , drop = FALSE]
+  storage.mode(new_obs_matrix) <- "numeric"
+  new_obs <- as.data.frame(new_obs_matrix)
+  
+  cat(paste0(
+    "Testing Observation #", obs_id,
+    " where Flavor = ",
+    round(X_full_train[obs_id, flavor_col], 2), "\n"
+  ))
+  
+  shap <- predict_parts(
+    explainer = explainer_xgb_full,
+    new_observation = new_obs,
+    type = "shap",
+    B = 25
+  )
+  
+  shap_plots[[i]] <- plot(shap) +
+    ggtitle(paste("Flavor target =", target_val_flav))
+}
+
+grid.arrange(
+  grobs = shap_plots,
+  ncol = 2
+)
+
+```
+```{r, shapviz-plots}
+set.seed(SEED)
+
+# Target flavor values
+target_vals <- c(0.0, 10.0)
+
+# Column index for Flavor
+flavor_col <- which(colnames(X_full_train) == "Flavor")
+
+# Store plots
+wf_plots <- vector("list", length(target_vals))
+
+for (i in seq_along(target_vals)) {
+  
+  target_val_flav <- target_vals[i]
+  
+  # Find observation closest to target value
+  obs_id <- which.min(abs(X_full_train[, flavor_col] - target_val_flav))
+  
+  # Extract observation
+  new_obs_matrix <- X_full_train[obs_id, , drop = FALSE]
+  storage.mode(new_obs_matrix) <- "numeric"
+  #new_obs <- as.data.frame(new_obs_matrix)
+  
+  cat(paste0(
+    "Testing Observation #", obs_id,
+    " where Flavor = ",
+    round(X_full_train[obs_id, flavor_col], 2), "\n"
+  ))
+  
+  # Create shapviz object
+  sv <- shapviz(
+    explainer_xgb_full$model,
+    X_pred = new_obs_matrix
+  )
+  
+  # Waterfall plot
+  wf_plots[[i]] <- sv_waterfall(sv, max_display = 12) +
+    ggtitle(paste("Flavor target =", target_val_flav))
+}
+
+# Arrange plots side-by-side
+grid.arrange(
+  grobs = wf_plots,
+  ncol = 2
+)
+```
+
 
