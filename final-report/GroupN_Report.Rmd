@@ -4,16 +4,19 @@ subtitle: "The Analysis of the Coffee Quality Dataset"
 abstract:
 date: "`r Sys.Date()`"
 output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: false
+    number_sections: true
   html_document:
-    toc: true
+    toc: false
     number_sections: true
     df_print: paged
-  pdf_document:
-    toc: true
-    number_sections: true
   word_document:
-    toc: true
-
+    toc: false
+fontsize: 11pt
+geometry: margin=1in
+bibliography: references.bib
 ---
 
 ```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
@@ -30,11 +33,15 @@ library(kableExtra)
 library(skimr)
 library(e1071)
 library(tidyverse)
+library(gridExtra)
+library(stringr)
+library(here)
+library(shapviz)
 
 # GLOBAL CHUNK OPTIONS
 # 'dev' checks if it's PDF to use high-quality rendering, otherwise standard
 knitr::opts_chunk$set(
-  echo = TRUE,
+  echo = FALSE,
   message = FALSE, 
   warning = FALSE,
   fig.align = "center",
@@ -46,7 +53,6 @@ knitr::opts_chunk$set(
 theme_set(theme_minimal())  # check ?theme_bw for other themes available
 ```
 
-\newpage
 
 # Introduction
 
@@ -55,8 +61,9 @@ This report explores the Coffee Quality dataset, walking through everything from
 ## Descriptive Analysis
 
 ```{r summaryStats}
+
 # Read the data
-coffee_data <- read.csv("~/ML2 arabica-coffee-analayze/arabica_data_cleaned.csv", na.strings = c("", "NA", " ", "n/a"))
+coffee_data <- read.csv(here("arabica_data_cleaned.csv"), na.strings = c("", "NA", " ", "n/a"))
 
 # Summary of the dataset
 coffee_data %>%
@@ -121,6 +128,8 @@ This transformation is based on the training data and applied to train and test 
 
 # A Brief Mathematical Overview of the ML Methods Used
 ## Support Vector Machine for Regression
+
+
 ```{r, fig.width=10, fig.height=6, out.width='100%', fig.align='center'}
 set.seed(123)
 
@@ -209,10 +218,57 @@ The factor $K$ is introduced as cost for regularization purposes. It is choosen 
 As in the SVM for classification, this can be generalized to non-linear functions by transforming the features using kernels.
 
 ## XGBoost
+XGBoost is an algorithm based on gradient boosted trees and second-order approximation [@chen2016xgboost]. It is widely used in machine learning due to its flexibility and strong empirical performance. These properties arise from a combination of algorithmic and systems-level optimizations, including efficient handling of sparse input data, approximate tree construction via weighted quantile sketches, and parallelized tree learning. In addition, careful optimization of memory access, data compression, and out-of-core computation enables the method to scale to very large datasets while maintaining computational efficiency.
+
+This section describes the mathematical foundations of the algorithm, namely ensemble methods, regularization, and gradient boosting machines combined with second order approximation. 
+
+### Tree Ensembles and Regularization
+
+XGBoost models the prediction as an additive ensemble of $K$ functions:
+$$
+\hat{y}_i = \sum_{k=1}^{K} f_k(x_i), \quad f_k \in \mathcal{F},
+$$
+where each $f_k$ is a regression tree belonging to the function space $\mathcal{F}$ [@chen2016xgboost; @james2021introduction]. Each tree acts as a weak learner that partitions the feature space into disjoint regions and assigns a constant prediction to each leaf [@james2021introduction].
+
+The model is trained by minimizing a regularized objective function of the form
+$$
+\mathcal{L} = \sum_{i} \ell(y_i, \hat{y}_i) + \sum_{k=1}^{K} \Omega(f_k),
+$$
+where $\ell(\cdot)$ is a differentiable loss function and $\Omega(f)$ is a regularization term that penalizes model complexity [@chen2016xgboost]. This term is defined as
+$$
+\Omega(f) = \gamma T + \frac{1}{2} \lambda \sum_{j=1}^{T} w_j^2,
+$$
+with $T$ denoting the number of leaves in the tree and $w_j$ the weight of leaf $j$. The regularization term encourages simpler trees and smooth leaf weights, helping to prevent overfitting.
+
+The ensemble structure allows the model to reduce bias by combining multiple weak learners, while regularization controls variance by limiting tree complexity and the magnitude of leaf weights [@james2021introduction]. This balance between bias and variance enables XGBoost to achieve strong predictive performance while maintaining good generalization.
+
+### Gradient Boosting Machines
+
+The tree ensemble is constructed in a stage-wise manner, where weak learners are added iteratively to improve the model [@friedman2001greedy]. At iteration $t$, the prediction is given by
+$$
+\hat{y}_i^{(t)} = \hat{y}_i^{(t-1)} + f_t(x_i),
+$$
+with $f_t \in \mathcal{F}$ denoting the newly added regression tree.
+
+Gradient tree boosting can be interpreted as gradient descent in function space, where each new learner is chosen to minimize the loss function in the direction of the negative gradient [@friedman2001greedy]. Specifically, the new tree at iteration $t$ is trained to fit the negative first order gradient
+$$
+-g_i^{(t)} = -\left. \frac{\partial \ell(y_i, \hat{y})}{\partial \hat{y}} \right|_{\hat{y} = \hat{y}_i^{(t-1)}}.
+$$
+
+XGBoost extends this framework by explicitly approximating the objective function using a second-order Taylor expansion of the loss around the current predictions:
+$$
+\ell(y_i, \hat{y}_i^{(t-1)} + f_t(x_i)) \approx \ell(y_i, \hat{y}_i^{(t-1)}) + g_i f_t(x_i) + \frac{1}{2} h_i f_t(x_i)^2,
+$$
+where
+$$
+h_i = \left. \frac{\partial^2 \ell(y_i, \hat{y})}{\partial \hat{y}^2} \right|_{\hat{y} = \hat{y}_i^{(t-1)}}
+$$
+is the second order derivative of the loss [@chen2016xgboost]. By incorporating both first- and second-order information, XGBoost enables efficient optimization of tree structures and leaf weights within each boosting iteration.
+
 
 # Application of SVM Method
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+```{r, preprocessing, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
 # Avoid categorical variables with many unique values because they will create many dummy variables. 
 columns_to_use <- c(
   "Number.of.Bags",
@@ -365,7 +421,8 @@ test_data  <- data.frame(model.matrix(~ ., data = test_data))[,-1]
 
 ```
 
-```{r, echo=FALSE}
+
+```{r, stats, echo=FALSE}
 # print(paste0(
 #   "Number of training samples: ", nrow(train_data), "\n",
 #   "Number of test samples: ", nrow(test_data), "\n",
@@ -378,6 +435,7 @@ test_data  <- data.frame(model.matrix(~ ., data = test_data))[,-1]
 
 ```
 
+
 ### Support Vector Regression - Hyperparameter Optimization
 
 For the prediction of cupper points we train an SVM for regression on the data set, holding out the test data set for final evaluation. 
@@ -386,7 +444,7 @@ We use a grid search for different values for cost and epsilon for a radial, lin
 
 
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+```{r, svm-training, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
 
 
 
@@ -609,7 +667,10 @@ print(paste("MAE:", mae))
 
 
 ```
+
+
 The best performing kernel is the linear kernel, which means the relationship between the features and the target variable is best approximated by a multidimensional hyperplane.
+
 
 ```{r, echo=FALSE, fig.height=3}
 # Plot the predictions vs the true values
@@ -629,6 +690,7 @@ random_prediction <- predict(svm_model, random_data)
 
 ```
 
+
 Here, we can see the predictions vs. the true values for the test data set. We can see that aside from two outliers, the predictions are close to the true values.
 
 
@@ -637,6 +699,8 @@ Here, we can see the predictions vs. the true values for the test data set. We c
 
 
 
+# Literature
 
+<div id="refs"></div>
 
 
