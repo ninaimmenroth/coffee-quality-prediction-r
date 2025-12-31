@@ -1,0 +1,569 @@
+---
+title: "Support Vector Regression for Coffee Quality Prediction"
+author: "Luisa Kalkert"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    df_print: paged
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Support Vector Regression
+
+### Data Preprocessing and Cleaning 
+
+#### Feature selection:
+In SVM Regression, categorical variables are One-Hot Encoded using dummy variables.
+This means, features with many unique values will lead to a sparse feature matrix. This is disadvantageous as it increases computational cost and poses the risk of overfitting. 
+Additionally, categories with only a few or even only one observation most likely will not add to model robustness, but are adding noise to the signal.
+Therefore, we are removing categorical features with many unique values, only keeping columns with a low number of unique values.
+E.g. we are not including the "Region" column with 344 unique values in the model training, because we'd on average have less than 4 observations per Region. 
+For features with a high number of missing values, we either remove the column or impute the missing values.
+For instance for the "Variety" column, we have about 15% missing values and 8% entries "other" at 30 different varieties. 
+Keeping those, would mean adding 30 sparse columns, and at the same time the information gain is most likely not too high with this many missing values.
+Therefore, we are not including this feature. 
+
+
+#### Imputation:
+For the altitude column, we have about 17% missing values. Here, we are imputing the missing values from the "Region" column.
+For each observation with missing altitude, we are imputing the median altitude of all coffees from the same region.
+This covers almost all missing values. For the remaining observations, we are imputing the mean altitude of all coffees from the same country of origin.
+As the "Region" and "Country" columns are not used in the model training, we are not creating correlated features with this imputation.
+We are imputing the missing values after the train/test split, using only values from the training set, to avoid data leakage from the test set into the training set.
+
+
+#### Further preprocessing:
+The bag weight column contains both pounds and kilograms, so we are converting all to kilograms. 
+However, for some entries, it is unclear which unit is used. For these, we are averaging the weight in pounds and kilograms.
+This means for those entries the weight is certainly incorrect, but should be within an order of magnitude of the correct weight. 
+If we can assume that speciality coffee is sold in smaller quantities, we can still gain valuable information from the weight.
+
+
+#### Scaling: 
+The SVM method used for model training has a built in scaling functionality. 
+Both predictor and target variables are scaled to have expected value 0 and variance 1. [https://rdrr.io/rforge/e1071/man/svm.html]
+This transformation is based on the training data and applied to train and test data sets.
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Read the data
+coffee_data <- read.csv("~/ML2 arabica-coffee-analayze/arabica_data_cleaned.csv", na.strings = c("", "NA"))
+
+
+
+# Avoid categorical variables with many unique values because they will create many dummy variables. 
+columns_to_use <- c(
+  "Number.of.Bags",
+  "Bag.Weight",
+  # "Country.of.Origin", Increased runtime too much
+  "Processing.Method", 
+  "Aroma",
+  "Flavor",
+  "Aftertaste",
+  "Acidity",
+  "Body",
+  "Balance",
+  "Uniformity",
+  "Clean.Cup",
+  "Sweetness",
+  "Cupper.Points", # Target variable
+  "Moisture",
+  "Category.One.Defects",
+  "Quakers",
+  "Category.Two.Defects",
+  "altitude_mean_meters" # Impute missing values from region and country origins
+)
+
+
+
+
+## Bag Weight
+
+# Get bags with weight in pounds
+bags_with_weight_in_pounds_indices <- grepl("lbs", coffee_data$Bag.Weight)
+
+# Get bags with weight in kg
+bags_with_weight_in_kg_indices <- grepl("kg", coffee_data$Bag.Weight)
+
+# Get bags with neither pounds nor kg
+bags_with_neither_pounds_nor_kg_indices <- !bags_with_weight_in_pounds_indices & !bags_with_weight_in_kg_indices
+
+# Get bags with both pounds and kg (incorrectly formatted)
+bags_with_both_pounds_and_kg_indices <- bags_with_weight_in_pounds_indices & bags_with_weight_in_kg_indices
+
+# Remove bags with both pounds and kg from bags with weight indices and bags with weight in kg indices
+bags_with_weight_in_pounds_indices <-
+  bags_with_weight_in_pounds_indices & !bags_with_both_pounds_and_kg_indices
+
+bags_with_weight_in_kg_indices <-
+  bags_with_weight_in_kg_indices & !bags_with_both_pounds_and_kg_indices
+
+
+# Sanity check
+# print(paste("Number of bags with weight in pounds:", sum(bags_with_weight_in_pounds_indices)))
+# print(paste("Number of bags with weight in kg:", sum(bags_with_weight_in_kg_indices)))
+# print(paste("Number of bags with neither pounds nor kg:", sum(bags_with_neither_pounds_nor_kg_indices)))
+# print(paste("Number of bags with both pounds and kg:", sum(bags_with_both_pounds_and_kg_indices)))
+# print(paste("Number of bags with weight:", length(coffee_data$Bag.Weight)))
+
+# Extract numeric value from Bag.Weight column
+coffee_data$Bag.Weight <- as.numeric(sub("^([^ ]+) .*", "\\1", coffee_data$Bag.Weight))
+# Multiply bags with weight in pounds by 0.453592 to convert to kg
+coffee_data$Bag.Weight[bags_with_weight_in_pounds_indices] <- coffee_data$Bag.Weight[bags_with_weight_in_pounds_indices] * 0.453592
+
+# For bags with neither pounds nor kg, average the weight in pounds and kg
+coffee_data$Bag.Weight[bags_with_neither_pounds_nor_kg_indices] <- coffee_data$Bag.Weight[bags_with_neither_pounds_nor_kg_indices] * (1 + 0.453592)/2
+coffee_data$Bag.Weight[bags_with_both_pounds_and_kg_indices] <- coffee_data$Bag.Weight[bags_with_both_pounds_and_kg_indices] * (1 + 0.453592)/2
+
+
+
+# For the Processing Method fill NAs with "Unknown"
+coffee_data$Processing.Method[is.na(coffee_data$Processing.Method)] <- "Unknown"
+
+
+
+# Split data into training and test set
+# Separate features and target
+
+
+# Simple random 80/20 split
+SEED <- 123
+set.seed(SEED)
+n_total <- nrow(coffee_data)
+n_train <- floor(0.8 * n_total)
+train_index <- sample(1:n_total, n_train)
+
+train_data <- coffee_data[train_index, ]
+test_data <- coffee_data[-train_index, ]
+
+
+
+## Altitude
+
+library(tidyverse)
+
+
+# Create dict of regions and their median altitudes
+region_altitudes <- train_data %>%
+  group_by(Region) %>%
+  summarise(altitude_median_mean_meters = median(altitude_mean_meters, na.rm = TRUE)) 
+
+region_altitudes <- region_altitudes[complete.cases(region_altitudes),]
+
+# Impute for train data
+missing_altitude_indices <- which(is.na(train_data$altitude_mean_meters)) 
+train_data[missing_altitude_indices, "altitude_mean_meters"] <- region_altitudes$altitude_median_mean_meters[match(train_data$Region[missing_altitude_indices], region_altitudes$Region)]
+
+
+# Impute for test data
+missing_altitude_indices <- which(is.na(test_data$altitude_mean_meters))
+test_data[missing_altitude_indices, "altitude_mean_meters"] <- region_altitudes$altitude_median_mean_meters[match(test_data$Region[missing_altitude_indices], region_altitudes$Region)]
+
+
+
+
+### Repeat imputation for country of origin
+
+# Create dict of regions and their median altitudes
+country_altitudes <- train_data %>%
+  group_by(Country.of.Origin) %>%
+  summarise(altitude_median_mean_meters = median(altitude_mean_meters, na.rm = TRUE)) 
+
+country_altitudes <- country_altitudes[complete.cases(country_altitudes),]
+
+
+# Impute for train data
+missing_altitude_indices <- which(is.na(train_data$altitude_mean_meters))
+train_data[missing_altitude_indices, "altitude_mean_meters"] <- country_altitudes$altitude_median_mean_meters[match(train_data$Country.of.Origin[missing_altitude_indices], country_altitudes$Country.of.Origin)]
+
+# Impute for test data
+missing_altitude_indices <- which(is.na(test_data$altitude_mean_meters))
+test_data[missing_altitude_indices, "altitude_mean_meters"] <- country_altitudes$altitude_median_mean_meters[match(test_data$Country.of.Origin[missing_altitude_indices], country_altitudes$Country.of.Origin)]
+
+
+
+
+# Remove columns we are not using
+train_data <- train_data[,columns_to_use]
+test_data <- test_data[,columns_to_use]
+
+
+# Remove remaining NAs
+train_data <- train_data[complete.cases(train_data),]
+test_data <- test_data[complete.cases(test_data),]
+
+
+# Add One Hot encoding
+train_data <- data.frame(model.matrix(~ ., data = train_data))[,-1]
+test_data  <- data.frame(model.matrix(~ ., data = test_data))[,-1]
+
+# Check if categories align between train and test 
+# print("All Categories match between train and Test data")
+# print(all(colnames(train_data) == colnames(test_data)))
+  
+
+```
+
+```{r, echo=FALSE}
+# print(paste0(
+#   "Number of training samples: ", nrow(train_data), "\n",
+#   "Number of test samples: ", nrow(test_data), "\n",
+#   "Number of features: ", ncol(train_data), "\n",
+#   "Average cupper points in training set: ", mean(train_data$Cupper.Points), "\n",
+#   "Average cupper points in test set: ", mean(test_data$Cupper.Points), "\n",
+#   "Features used: ", paste(columns_to_use, collapse = ", ")
+
+# ))
+
+```
+
+### Support Vector Regression - Hyperparameter Optimization
+
+For the prediction of cupper points we train an SVM for regression on the data set, holding out the test data set for final evaluation. 
+To choose appropriate hyperparameters, we conduct a hyperparameter optimization on the training data set using 10-fold cross-validation. 
+We use a grid search for different values for cost and epsilon for a radial, linear, and 2-degree polynomial kernel. We compare the mean absolute error between runs to choose the best-performing hyperparameter combination. Finally, we train a model with these hyperparameters on the entire training set and evaluate on the test data set.
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+
+
+
+
+####  Fit SVM model with polynomial kernel (degree 2) 
+library(e1071)
+
+# Gridsearch 
+epsilon = seq(0,2,0.1)
+cost = 2^(-10:3)
+# epsilon = seq(0,1,0.5)
+# cost = 2^(-2:-1)
+
+
+# Tune automatically with cross-validation
+tuneResult <- tune(svm, Cupper.Points ~ .,  data = data.frame(train_data),
+                   kernel = "polynomial",
+                   degree = 2,
+                   ranges = list(epsilon = epsilon, cost = cost)
+)
+
+
+# Show Results and visualize tuning as a heatmap 
+# print(tuneResult)
+library(ggplot2)
+
+perf <- tuneResult$performances
+best <- data.frame(
+  epsilon = tuneResult$best.parameters$epsilon,
+  cost    = tuneResult$best.parameters$cost
+)
+
+ 
+ library(dplyr)
+ library(tidyr)
+ 
+ # Reshape performance data so that each row is an epsilon value and
+ # each column (after the first) is a cost value, holding the error.
+ data_wide <- perf %>%
+   select(epsilon, cost, error) %>%
+   arrange(epsilon, cost) %>%
+   pivot_wider(
+     names_from = cost,
+     values_from = error
+   )
+ 
+ # Extract x (epsilon), y (cost) and z (error matrix) for image()
+ x_vals <- data_wide$epsilon
+ y_vals <- as.numeric(names(data_wide)[-1])
+ z_mat  <- as.matrix(data_wide[, -1])
+ 
+# Set up layout for side-by-side plots
+par(mfrow = c(1, 3))
+
+# Use image() with a transformed y axis: log2(cost)
+image(x = x_vals, y = log2(y_vals), z = log2(z_mat),
+      xlab = "epsilon",
+      ylab = "log2(cost)",
+      main = "Errors using 2nd\nDegree Polynomial Kernel",
+      col = colorRampPalette(c("white", "navy"))(50))
+
+points(best$epsilon, log2(best$cost), col = "orange", pch = 18, cex = 1.5)
+
+
+# Best parameters 
+best_error <- max(data.frame(data_wide[,-1]))
+
+# Add polynomial kernel results to best results
+best_runs <- data.frame(
+  kernel = "polynomial",
+  epsilon = best$epsilon,
+  cost = best$cost,
+  error = best_error
+)
+
+
+
+
+# Fit SVM model with linear kernel 
+
+# Tune automatically with cross-validation
+tuneResult <- tune(svm, Cupper.Points ~ .,  data = data.frame(train_data),
+                   kernel = "linear",
+                   ranges = list(epsilon = epsilon, cost = cost)
+)
+
+# Show Results and visualize tuning as a heatmap 
+
+perf <- tuneResult$performances
+best <- data.frame(
+  epsilon = tuneResult$best.parameters$epsilon,
+  cost    = tuneResult$best.parameters$cost
+)
+
+
+ # Reshape performance data so that each row is an epsilon value and
+ # each column (after the first) is a cost value, holding the error.
+ data_wide <- perf %>%
+   select(epsilon, cost, error) %>%
+   arrange(epsilon, cost) %>%
+   pivot_wider(
+     names_from = cost,
+     values_from = error
+   )
+ 
+ # Extract x (epsilon), y (cost) and z (error matrix) for image()
+ x_vals <- data_wide$epsilon
+ y_vals <- as.numeric(names(data_wide)[-1])
+ z_mat  <- as.matrix(data_wide[, -1])
+ 
+# Use image() with a transformed y axis: log2(cost)
+image(x = x_vals, y = log2(y_vals), z = log2(z_mat),
+      xlab = "epsilon",
+      ylab = "log2(cost)",
+      main = "Errors using Linear Kernel",
+      col = colorRampPalette(c("white", "navy"))(50))
+
+points(best$epsilon, log2(best$cost), col = "orange", pch = 18, cex = 1.5)
+
+
+best_error <- max(data.frame(data_wide[,-1]))
+
+# add linear kernel to best runs
+best_runs <- rbind(best_runs, data.frame(
+  kernel = "linear",
+  epsilon = best$epsilon,
+  cost = best$cost,
+  error = best_error
+))
+
+
+
+# Fit SVM model with radial kernel 
+
+# Tune automatically with cross-validation
+tuneResult <- tune(svm, Cupper.Points ~ .,  data = data.frame(train_data),
+                   ranges = list(epsilon = epsilon, cost = cost)
+)
+
+# Show Results and visualize tuning as a heatmap 
+
+perf <- tuneResult$performances
+best <- data.frame(
+  epsilon = tuneResult$best.parameters$epsilon,
+  cost    = tuneResult$best.parameters$cost
+)
+
+ # Reshape performance data so that each row is an epsilon value and
+ # each column (after the first) is a cost value, holding the error.
+ data_wide <- perf %>%
+   select(epsilon, cost, error) %>%
+   arrange(epsilon, cost) %>%
+   pivot_wider(
+     names_from = cost,
+     values_from = error
+   )
+ 
+ # Extract x (epsilon), y (cost) and z (error matrix) for image()
+ x_vals <- data_wide$epsilon
+ y_vals <- as.numeric(names(data_wide)[-1])
+ z_mat  <- as.matrix(data_wide[, -1])
+ 
+# Use image() with a transformed y axis: log2(cost)
+image(x = x_vals, y = log2(y_vals), z = log2(z_mat),
+      xlab = "epsilon",
+      ylab = "log2(cost)",
+      main = "Errors using Radial Kernel",
+      col = colorRampPalette(c("white", "navy"))(50))
+
+points(best$epsilon, log2(best$cost), col = "orange", pch = 18, cex = 1.5)
+
+# Reset plotting parameters
+par(mfrow = c(1, 1))
+
+best_error <- max(data.frame(data_wide[,-1]))
+
+# add radial kernel to best runs
+best_runs <- rbind(best_runs, data.frame(
+  kernel = "radial",
+  epsilon = best$epsilon,
+  cost = best$cost,
+  error = best_error
+))
+
+```
+These figures show the mean absolute error for the different hyperparameters by kernel. The best performing hyperparameter combination for each kernel are marked with orange points.
+
+```{r}
+
+
+# Compare best results for each kernel by getting the row with the lowest error
+best_runs <- best_runs[order(best_runs$err),]
+
+best_run <- best_runs[1,]
+
+cat("Best SVM kernel and parameters selected:\n")
+print(best_run[,c("kernel", "epsilon", "cost")])
+
+
+
+
+
+
+# Train final model with best parameters
+epsilon = best_run$epsilon
+cost = best_run$cost
+
+svm_model <- svm(Cupper.Points ~ ., data = train_data,
+                 cost = cost,
+                 epsilon = epsilon, 
+                 kernel = best_run$kernel)
+
+# Predict on test set
+predictions <- predict(svm_model, test_data)
+
+# Evaluate model performance
+mae <- mean(abs(predictions - test_data[, "Cupper.Points"]), na.rm = TRUE)
+mse <- mean((predictions - test_data[, "Cupper.Points"])^2, na.rm = TRUE)
+rmse <- sqrt(mse)
+# print(paste("RMSE:", rmse))
+print(paste("MAE:", mae))
+
+
+```
+The best performing kernel is the linear kernel, which means the relationship between the features and the target variable is best approximated by a multidimensional hyperplane.
+
+```{r, echo=FALSE, fig.height=3}
+# Plot the predictions vs the true values
+plot(predictions, test_data[, "Cupper.Points"],
+     xlab = "Predictions",
+     ylab = "True Values",
+     main = "Predictions vs True Values")
+
+# get predictions for a random data point from the test data set
+random_index <- sample(1:nrow(test_data), 1)
+random_data <- test_data[random_index,]
+random_prediction <- predict(svm_model, random_data)
+# print("Random Data Point")
+# print(random_data)
+# print(paste("Prediction:", random_prediction))
+# print(paste("True value:", random_data[, "Cupper.Points"]))
+
+```
+
+Here, we can see the predictions vs. the true values for the test data set. We can see that aside from two outliers, the predictions are close to the true values.
+
+
+
+### Explainable AI Methods 
+
+#### Permutation Feature Importance (PFI)
+```{r}
+library(DALEX)
+
+# Create an "Explainer" object. Tell Dalex how to talk to the svm_model
+explainer_svm <- explain(
+  model = svm_model,
+  data = test_data[, -which(names(test_data) == "Cupper.Points")], # Predictors only
+  y = test_data$Cupper.Points,                                   # Actual target
+  label = "SVM Coffee Model"
+)
+
+# Calculate Feature Importance PFI with loss_root_mean_square
+pfi_results <- model_parts(
+  explainer = explainer_svm,
+  loss_function = loss_root_mean_square,
+  type = "difference" # Shows how much the error INCREASES
+)
+
+# Visualize the results
+plot(pfi_results) +
+  ggtitle("Feature Importance (PFI) for Coffee Quality", 
+          subtitle = "How much the error increases when a feature is shuffled") +
+  theme_minimal()
+
+```
+
+#### Partial Dependence Plot (PDP) --Not recommended for correlated features!
+Because we're using a linear model already (linear kernel of SVM), the PDP also works in that condition. However, if we would use random forest or any other non-linear model, PDP would'nt be a reliable xAI method.
+
+```{r}
+# Calculate the Marginal Effects (PDP)
+# We choose a few key features to look at (e.g., Flavor, Altitude, and Aroma)
+pdp_results <- model_profile(
+  explainer = explainer_svm,
+  variables = c("Flavor", "Acidity", "Aroma"),
+  type = "partial" # This specifies Partial Dependence
+)
+
+# Visualize the global effects
+plot(pdp_results) +
+  ggtitle("Partial Dependence Plots for Coffee Quality", 
+          subtitle = "Average effect of a feature on predicted Cupper Points") +
+  theme_bw()
+
+
+```
+
+#### Accumulated Local Effects (ALE)
+ALE is a better option to see the feature importance in a model who has correlated features.
+
+```{r}
+# Calculate ALE instead of PDP
+ale_results <- model_profile(
+  explainer = explainer_svm,
+  variables = c("Flavor", "Aroma", "Acidity"),
+  type = "accumulated" # This triggers the ALE method
+)
+
+plot(ale_results) + 
+  theme(panel.spacing = unit(1.5, "lines")) +
+  labs(title = "Accumulated Local Effects (ALE)",
+       subtitle = "Safer for correlated features like Aroma and Flavor") +
+  theme_bw()
+```
+
+#### SHAP
+#### Local Explanation (Why this specific cup of coffee?)
+
+```{r}
+# 1. Select a specific coffee from your test set (e.g., the first one)
+new_coffee <- test_data[5, ]
+
+# 2. Calculate SHAP values for this specific coffee
+shap_local <- predict_parts(explainer = explainer_svm, 
+                             new_observation = new_coffee, 
+                             type = "shap",
+                             ) # B is the number of re-orderings to stabilize the result
+
+# 3. Plot the local explanation
+plot(shap_local) + 
+  theme_bw() +
+  labs(title = "Local Explanation for a Single Coffee Sample",
+       subtitle = "Contribution of each feature to the specific Cupper Points prediction")
+```
+

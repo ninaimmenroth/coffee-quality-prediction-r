@@ -1,0 +1,174 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Support Vector Regression for Coffee Quality Prediction},
+  pdfauthor={Luisa Kalkert},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Support Vector Regression for Coffee Quality Prediction}
+\author{Luisa Kalkert}
+\date{2025-12-28}
+
+\begin{document}
+\maketitle
+
+\subsection{Support Vector Regression}\label{support-vector-regression}
+
+\subsubsection{Data Preprocessing and
+Cleaning}\label{data-preprocessing-and-cleaning}
+
+\paragraph{Feature selection:}\label{feature-selection}
+
+In SVM Regression, categorical variables are One-Hot Encoded using dummy
+variables. This means, features with many unique values will lead to a
+sparse feature matrix. This is disadvantageous as it increases
+computational cost and poses the risk of overfitting. Additionally,
+categories with only a few or even only one observation most likely will
+not add to model robustness, but are adding noise to the signal.
+Therefore, we are removing categorical features with many unique values,
+only keeping columns with a low number of unique values. E.g. we are not
+including the ``Region'' column with 344 unique values in the model
+training, because we'd on average have less than 4 observations per
+Region. For features with a high number of missing values, we either
+remove the column or impute the missing values. For instance for the
+``Variety'' column, we have about 15\% missing values and 8\% entries
+``other'' at 30 different varieties. Keeping those, would mean adding 30
+sparse columns, and at the same time the information gain is most likely
+not too high with this many missing values. Therefore, we are not
+including this feature.
+
+\paragraph{Imputation:}\label{imputation}
+
+For the altitude column, we have about 17\% missing values. Here, we are
+imputing the missing values from the ``Region'' column. For each
+observation with missing altitude, we are imputing the median altitude
+of all coffees from the same region. This covers almost all missing
+values. For the remaining observations, we are imputing the mean
+altitude of all coffees from the same country of origin. As the
+``Region'' and ``Country'' columns are not used in the model training,
+we are not creating correlated features with this imputation. We are
+imputing the missing values after the train/test split, using only
+values from the training set, to avoid data leakage from the test set
+into the training set.
+
+\paragraph{Further preprocessing:}\label{further-preprocessing}
+
+The bag weight column contains both pounds and kilograms, so we are
+converting all to kilograms. However, for some entries, it is unclear
+which unit is used. For these, we are averaging the weight in pounds and
+kilograms. This means for those entries the weight is certainly
+incorrect, but should be within an order of magnitude of the correct
+weight. If we can assume that speciality coffee is sold in smaller
+quantities, we can still gain valuable information from the weight.
+
+\paragraph{Scaling:}\label{scaling}
+
+The SVM method used for model training has a built in scaling
+functionality. Both predictor and target variables are scaled to have
+expected value 0 and variance 1.
+{[}\url{https://rdrr.io/rforge/e1071/man/svm.html}{]} This
+transformation is based on the training data and applied to train and
+test data sets.
+
+\subsubsection{Support Vector Regression - Hyperparameter
+Optimization}\label{support-vector-regression---hyperparameter-optimization}
+
+For the prediction of cupper points we train an SVM for regression on
+the data set, holding out the test data set for final evaluation. To
+choose appropriate hyperparameters, we conduct a hyperparameter
+optimization on the training data set using 10-fold cross-validation. We
+use a grid search for different values for cost and epsilon for a
+radial, linear, and 2-degree polynomial kernel. We compare the mean
+absolute error between runs to choose the best-performing hyperparameter
+combination. Finally, we train a model with these hyperparameters on the
+entire training set and evaluate on the test data set.
+
+\pandocbounded{\includegraphics[keepaspectratio]{arabica_SVM_files/figure-latex/unnamed-chunk-3-1.pdf}}
+These figures show the mean absolute error for the different
+hyperparameters by kernel. The best performing hyperparameter
+combination for each kernel are marked with orange points.
+
+\begin{verbatim}
+## Best SVM kernel and parameters selected:
+\end{verbatim}
+
+\begin{verbatim}
+##   kernel epsilon      cost
+## 2 linear     0.1 0.0078125
+\end{verbatim}
+
+\begin{verbatim}
+## [1] "MAE: 0.143099275160558"
+\end{verbatim}
+
+The best performing kernel is the linear kernel, which means the
+relationship between the features and the target variable is best
+approximated by a multidimensional hyperplane.
+
+\pandocbounded{\includegraphics[keepaspectratio]{arabica_SVM_files/figure-latex/unnamed-chunk-5-1.pdf}}
+
+Here, we can see the predictions vs.~the true values for the test data
+set. We can see that aside from two outliers, the predictions are close
+to the true values.
+
+\end{document}

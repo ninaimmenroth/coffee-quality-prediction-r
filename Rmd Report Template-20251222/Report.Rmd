@@ -7,13 +7,13 @@ abstract: |
   It demonstrates automatic table formatting and bibliography handling.
 date: "`r Sys.Date()`"
 output:
-  pdf_document:
-    toc: true
-    number_sections: true
   html_document:
     toc: true
     number_sections: true
     df_print: paged
+  pdf_document:
+    toc: true
+    number_sections: true
   word_document:
     toc: true
 bibliography: references.bib
@@ -24,9 +24,12 @@ bibliography: references.bib
 rm(list = ls(all.names = TRUE))
 
 # LOAD PACKAGES
-library(knitr)
 library(ggplot2)
+library(corrplot)
 library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
 
 # GLOBAL CHUNK OPTIONS
 # 'dev' checks if it's PDF to use high-quality rendering, otherwise standard
