@@ -1,13 +1,12 @@
 ---
 title: "Coffee Quality Prediction: SVM & XGBoost Analysis"
 date: "`r Sys.Date()`"
-fontsize: 11pt
-
+documentclass: article
+classoption: 11pt
 output:
   pdf_document:
     number_sections: true
     latex_engine: xelatex
-
 header-includes:
   - \usepackage{booktabs}
   - \usepackage{float}
@@ -20,7 +19,6 @@ header-includes:
   - \setlength{\parskip}{3pt}
   - \setlength{\floatsep}{8pt}
   - \setlength{\textfloatsep}{8pt}
-
 geometry: margin=0.85in
 ---
 
@@ -546,7 +544,7 @@ if (!dir.exists(MODEL_DIR)) dir.create(MODEL_DIR)
 
 To ensure that the SVM and XGBoost models are comparable, we apply the same data preprocessing described above to XGBoost, except we skip feature scaling. 
 
-SVM requires scaling because it calculates distances between data points to find the optimal separating hyperplane. Features with larger ranges would dominate the distance calculations, which would make the model incorrect. XGBoost is a tree-based method, it is only important if values are higher or lower (e.g., “is Flavor > 7.5?”), so scaling is unnecessary.
+SVM requires scaling because it calculates distances between data points to find the optimal separating hyperplane. Features with larger ranges would dominate the distance calculations, which would make the model incorrect. XGBoost is a tree-based method, it is only important if values are higher or lower (e.g., "is Flavor > 7.5?"), so scaling is unnecessary.
 
 ```{r xgb-load-data}
 coffee_data <- read.csv("arabica_data_cleaned.csv", na.strings = c("", "NA"))
@@ -760,14 +758,14 @@ We tune four main parameters to balance bias and variance:
 These ranges are conservative. With about 1000 samples, extreme values (e.g., eta=0.3, max_depth=10) would overfit, but mild regularization is enough. 
 
 **Lambda and Min_Child_Weight Regularization**  
-We tested additional hyperparameters, but they were ineffective. XGBoost’s lambda (L2) and min_child_weight provided no benefit because implicit regularization from learning rate, max_depth, subsample, and early stopping already prevents overfitting. Extra regularization slightly worsened the metrics, so it was omitted.
+We tested additional hyperparameters, but they were ineffective. XGBoost's lambda (L2) and min_child_weight provided no benefit because implicit regularization from learning rate, max_depth, subsample, and early stopping already prevents overfitting. Extra regularization slightly worsened the metrics, so it was omitted.
 
 **Bayesian Optimization vs Grid Search**  
 We also tested Bayesian Optimization, but it was ineffective. With only 4 parameters and a small search space, it added overhead, slowed hyperparameter tuning, and offered no meaningful improvement. Grid search is sufficient for this dataset and model.
 
 **10-fold CV:** Matches SVM for fair comparison. Each fold has about 100 samples, giving stable MAE estimates. Fewer folds increase variance; leave-one-out is too slow.
 
-**Early stopping (50 rounds):** Stops training if validation MAE doesn’t improve for 50 rounds, automatically choosing the optimal number of trees and avoiding overfitting.
+**Early stopping (50 rounds):** Stops training if validation MAE doesn't improve for 50 rounds, automatically choosing the optimal number of trees and avoiding overfitting.
 
 
 ```{r xgb-train-final}
@@ -890,7 +888,7 @@ cat("\n\\bottomrule
 \\end{center}")
 ```
 
-XGBoost provides three **feature importance** measures: gain, cover, and frequency. Gain shows how much a feature reduces prediction error, so higher gain means higher predictive power. For example, Flavor has the highest gain (about 0.3), meaning it explains roughly 30% of the model’s total error reduction. Cover measures how many samples are affected by splits on a feature; high cover means the feature is used on large parts of the data. Frequency counts how often a feature is used in splits, but frequent use does not necessarily mean strong impact.
+XGBoost provides three **feature importance** measures: gain, cover, and frequency. Gain shows how much a feature reduces prediction error, so higher gain means higher predictive power. For example, Flavor has the highest gain (about 0.3), meaning it explains roughly 30% of the model's total error reduction. Cover measures how many samples are affected by splits on a feature; high cover means the feature is used on large parts of the data. Frequency counts how often a feature is used in splits, but frequent use does not necessarily mean strong impact.
 
 The ranking shows that Flavor is by far the most important feature, which matches domain knowledge, because flavor is the most important criterion for cupping evaluations. Other top features (Aroma, Aftertaste, Balance) are also sensory attributes. Non-sensory features such as altitude or processing method contribute very little, likely because their effects are already reflected in the sensory scores. 
 
@@ -937,29 +935,6 @@ pfi_results <- pfi_xgb %>%
   mutate(Importance = Mean_Dropout_Loss - min(pfi_xgb$dropout_loss[pfi_xgb$variable == "_full_model_"]),
          Rank = row_number())
 ```
-
-```{r xgb-pfi-plot, fig.width=4, fig.height=3, out.width="60%"}
-pfi_plot_data <- head(pfi_results, 10)
-pfi_plot_data$variable <- factor(pfi_plot_data$variable, levels = rev(pfi_plot_data$variable))
-
-ggplot(pfi_plot_data, aes(x = Importance, y = variable)) +
-  geom_col(fill = "#2E86AB", width = 0.7) +
-  geom_errorbarh(aes(xmin = Importance - SD, xmax = Importance + SD), height = 0.3, linewidth = 0.3) +
-  labs(x = "MAE Increase", y = NULL, title = "Top 10 Features by PFI") +
-  theme_minimal(base_size = 8) +
-  theme(plot.title = element_text(size = 9))
-```
-
-**PFI interpretation:**
-
-*Sensory attributes dominate:* The top features are all sensory scores, confirming the model relies on expert taste evaluation.
-
-*PFI vs Gain:* PFI provides a model-agnostic view that complements XGBoost's native importance. Both agree that Flavor is most predictive.
-
-### Partial Dependence Plots (PDP)
-
-PDP shows the marginal effect of a feature on predictions, averaging over all other features. We plot the top 4 features by PFI.
-
 ```{r xgb-pdp-calculation}
 top_features_pfi <- head(pfi_results$variable, 4)
 
@@ -970,25 +945,41 @@ for (feat in top_features_pfi) {
 }
 ```
 
-```{r xgb-pdp-combined, fig.width=5, fig.height=3, out.width="70%"}
+```{r xgb-pfi-pdp-combined, fig.width=6.5, fig.height=2.2, out.width="95%"}
+# PFI plot
+pfi_plot_data <- head(pfi_results, 10)
+pfi_plot_data$variable <- factor(pfi_plot_data$variable, levels = rev(pfi_plot_data$variable))
+
+p_pfi <- ggplot(pfi_plot_data, aes(x = Importance, y = variable)) +
+  geom_col(fill = "#2E86AB", width = 0.7) +
+  geom_errorbarh(aes(xmin = Importance - SD, xmax = Importance + SD), height = 0.3, linewidth = 0.3) +
+  labs(x = "MAE Increase", y = NULL, title = "Top 10 Features by PFI") +
+  theme_minimal(base_size = 7) +
+  theme(plot.title = element_text(size = 8))
+
+# PDP plot
 pdp_combined_data <- do.call(rbind, lapply(top_features_pfi, function(feat) {
   pdp_data <- pdp_list[[feat]]$agr_profiles
   data.frame(Feature = feat, x = pdp_data$`_x_`, yhat = pdp_data$`_yhat_`)
 }))
 
-ggplot(pdp_combined_data, aes(x = x, y = yhat)) +
+p_pdp <- ggplot(pdp_combined_data, aes(x = x, y = yhat)) +
   geom_line(color = "#2E86AB", linewidth = 0.8) +
   facet_wrap(~Feature, scales = "free_x", nrow = 1) +
-  labs(x = "Feature Value", y = "Predicted Cupper Points") +
-  theme_minimal(base_size = 8) +
-  theme(strip.text = element_text(size = 7, face = "bold"))
+  labs(x = "Feature Value", y = "Predicted Cupper Points", title = "Partial Dependence Plots") +
+  theme_minimal(base_size = 7) +
+  theme(strip.text = element_text(size = 6, face = "bold"), plot.title = element_text(size = 8))
+
+grid.arrange(p_pfi, p_pdp, ncol = 2, widths = c(1, 1.5))
 ```
 
-**PDP interpretation:**
+The top features are all sensory scores, confirming the model relies on expert taste evaluation. PFI provides a model-agnostic view that complements XGBoost's native importance (gain). Both agree that Flavor is most predictive.
 
-*Positive monotonic relationships:* All sensory features show the expected pattern—higher scores lead to higher predicted quality.
+### Partial Dependence Plots (PDP)
 
-*Flavor has steepest slope:* The PDP range for Flavor is largest, indicating it has the strongest marginal effect on predictions.
+PDP shows the marginal effect of a feature on predictions, averaging over all other features. We plot the top 4 features by PFI.
+
+All sensory features show the expected pattern: higher scores lead to higher predicted quality. The PDP range for Flavor is largest, indicating it has the strongest marginal effect on predictions.
 
 # Model Comparison - SVM vs XGBoost
 
@@ -1012,51 +1003,52 @@ comparison_df <- data.frame(
 kable(comparison_df)
 ```
 
-```{r comparison-plot, fig.height=2.8, fig.width=7.2, out.width="75%"}
-par(mfrow = c(1, 2))
+```{r comparison-plots-combined, fig.height=2.4, fig.width=6.5, out.width="85%"}
+# Create side-by-side scatter plots using ggplot2 for better layout control
+library(gridExtra)
 
-# SVM plot
-plot(svm_predictions, svm_test_cupper_points,
-     xlab = "Predictions",
-     ylab = "True Values",
-     main = paste0("SVM (MAE: ", round(svm_mae, 4), ")"),
-     pch = 19,
-     col = rgb(0.8, 0.2, 0.2, 0.5))
-abline(0, 1, col = "darkred", lwd = 2)
+# SVM scatter plot
+svm_df <- data.frame(pred = svm_predictions, actual = svm_test_cupper_points)
+p_svm <- ggplot(svm_df, aes(x = pred, y = actual)) +
+  geom_point(alpha = 0.5, size = 1.2, color = "#E63946") +
+  geom_abline(slope = 1, intercept = 0, color = "darkred", linewidth = 0.8) +
+  labs(x = "Predictions", y = "True Values", 
+       title = paste0("SVM (MAE: ", round(svm_mae, 4), ")")) +
+  theme_minimal(base_size = 8) +
+  theme(plot.title = element_text(size = 9, face = "bold"))
 
-# XGBoost plot  
-plot(preds_xgb, y_test,
-     xlab = "Predictions",
-     ylab = "True Values",
-     main = paste0("XGBoost (MAE: ", round(metrics_xgb$MAE, 4), ")"),
-     pch = 19,
-     col = rgb(0.2, 0.4, 0.6, 0.5))
-abline(0, 1, col = "navy", lwd = 2)
+# XGBoost scatter plot
+xgb_df <- data.frame(pred = preds_xgb, actual = y_test)
+p_xgb <- ggplot(xgb_df, aes(x = pred, y = actual)) +
+  geom_point(alpha = 0.5, size = 1.2, color = "#2E86AB") +
+  geom_abline(slope = 1, intercept = 0, color = "navy", linewidth = 0.8) +
+  labs(x = "Predictions", y = "True Values", 
+       title = paste0("XGBoost (MAE: ", round(metrics_xgb$MAE, 4), ")")) +
+  theme_minimal(base_size = 8) +
+  theme(plot.title = element_text(size = 9, face = "bold"))
 
-par(mfrow = c(1, 1))
-```
-
-```{r residual-comparison, fig.height=2.4, fig.width=4.8, out.width="55%"}
-# Calculate residuals
+# Residual histogram
 svm_residuals <- svm_test_cupper_points - svm_predictions
 xgb_residuals <- y_test - preds_xgb
-
-# Create residual comparison dataframe
 residuals_df <- data.frame(
   Residual = c(svm_residuals, xgb_residuals),
   Model = c(rep("SVM", length(svm_residuals)), rep("XGBoost", length(xgb_residuals)))
 )
 
-# Histogram comparison
-ggplot(residuals_df, aes(x = Residual, fill = Model)) +
-  geom_histogram(bins = 30, alpha = 0.6, position = "identity") +
+p_resid <- ggplot(residuals_df, aes(x = Residual, fill = Model)) +
+  geom_histogram(bins = 25, alpha = 0.6, position = "identity") +
   scale_fill_manual(values = c("SVM" = "#E63946", "XGBoost" = "#2E86AB")) +
-  labs(title = "Distribution of Prediction Residuals",
-       x = "Residual (True - Predicted)",
-       y = "Count") +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", linewidth = 0.5) +
+  labs(x = "Residual", y = "Count", title = "Residual Distribution") +
+  theme_minimal(base_size = 8) +
+  theme(plot.title = element_text(size = 9, face = "bold"),
+        legend.position = "bottom", legend.key.size = unit(0.3, "cm"))
+
+# Arrange all three plots side by side
+grid.arrange(p_svm, p_xgb, p_resid, ncol = 3)
 ```
+
+Both models achieve similar predictive accuracy, with XGBoost having slightly smaller MAE (0.141 vs 0.146) and larger $R^2$ (0.68 vs 0.59). The scatter plots confirm that both models produce predictions closely aligned with true values, with no systematic bias evident in either case. The residual distributions are nearly identical and centered around zero, indicating that both approaches effectively capture the underlying signal in the data.
 
 ---
 
