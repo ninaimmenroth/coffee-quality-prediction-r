@@ -5,18 +5,14 @@ abstract:
 date: "`r Sys.Date()`"
 output:
   html_document:
-    toc: false
+    toc: true
     number_sections: true
     df_print: paged
   pdf_document:
-    latex_engine: xelatex
-    toc: false
+    toc: true
     number_sections: true
   word_document:
-    toc: false
-fontsize: 11pt
-geometry: margin=1in
-bibliography: references.bib
+    toc: true
 ---
 
 ```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
@@ -33,10 +29,6 @@ library(kableExtra)
 library(skimr)
 library(e1071)
 library(tidyverse)
-library(gridExtra)
-library(stringr)
-library(here)
-library(shapviz)
 library(patchwork)
 library(DALEX)
 
@@ -55,6 +47,7 @@ knitr::opts_chunk$set(
 theme_set(theme_minimal())  # check ?theme_bw for other themes available
 ```
 
+\newpage
 
 # Introduction
 
@@ -67,8 +60,7 @@ The dataset has 1,311 coffee evaluations (observations) with 44 different variab
 
 **Dealing with Missing Data**
 One of the first things we noticed was that a lot of the categorical (text) data is missing. Because there were so many gaps, it was hard to use many of these variables in our models. Instead, we focused our energy on the variables that really mattered and tried to fill in the blanks for critical info like Altitude.
-
-```{r summaryStats}
+```{r}
 # Read the data
 coffee_data <- read.csv("~/ML2 arabica-coffee-analayze/arabica_data_cleaned.csv", na.strings = c("", "NA", " ", "n/a"))
 # 1. Select the features you want to focus on
@@ -94,7 +86,6 @@ ggplot(missing_data, aes(x = reorder(Feature, -Missing_Count), y = Missing_Count
        x = "Feature",
        y = "Number of Missing Observations") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
 ```
 
 **The Distribution of the Variables**
@@ -134,8 +125,6 @@ p_hist <- ggplot(long_data, aes(x = Score, fill = Feature)) +
   plot_annotation(title = "Sensory Feature Profile: Range and Distribution",
                   theme = theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold")))
 ```
-
-
 **Correlation Between Numerical Features**
 Finally, our correlation matrix showed us how these variables lean on each other. Most sensory features are strongly linked. if a coffee smells great (Aroma), it almost always tastes great (Flavor). However, some things, like Moisture, didn't follow the crowd. Moisture has a very low correlation with the other scores and even shows a slight negative trend, meaning more moisture sometimes leads to a slightly lower quality score.
 ```{r , fig.width=7, fig.height=5, echo=FALSE, fig.align='center'}
@@ -191,8 +180,6 @@ This transformation is based on the training data and applied to train and test 
 
 # A Brief Mathematical Overview of the ML Methods Used
 ## Support Vector Machine for Regression
-
-
 ```{r, fig.width=10, fig.height=6, out.width='100%', fig.align='center'}
 set.seed(123)
 
@@ -281,58 +268,10 @@ The factor $K$ is introduced as cost for regularization purposes. It is choosen 
 As in the SVM for classification, this can be generalized to non-linear functions by transforming the features using kernels.
 
 ## XGBoost
-XGBoost is an algorithm based on gradient boosted trees and second-order approximation [@chen2016xgboost]. It is widely used in machine learning due to its flexibility and strong empirical performance. These properties arise from a combination of algorithmic and systems-level optimizations, including efficient handling of sparse input data, approximate tree construction via weighted quantile sketches, and parallelized tree learning. In addition, careful optimization of memory access, data compression, and out-of-core computation enables the method to scale to very large datasets while maintaining computational efficiency.
-
-This section describes the mathematical foundations of the algorithm, namely ensemble methods, regularization, and gradient boosting machines combined with second order approximation. 
-
-### Tree Ensembles and Regularization
-
-XGBoost models the prediction as an additive ensemble of $K$ functions:
-$$
-\hat{y}_i = \sum_{k=1}^{K} f_k(x_i), \quad f_k \in \mathcal{F},
-$$
-where each $f_k$ is a regression tree belonging to the function space $\mathcal{F}$ [@chen2016xgboost; @james2021introduction]. Each tree acts as a weak learner that partitions the feature space into disjoint regions and assigns a constant prediction to each leaf [@james2021introduction].
-
-The model is trained by minimizing a regularized objective function of the form
-$$
-\mathcal{L} = \sum_{i} \ell(y_i, \hat{y}_i) + \sum_{k=1}^{K} \Omega(f_k),
-$$
-where $\ell(\cdot)$ is a differentiable loss function and $\Omega(f)$ is a regularization term that penalizes model complexity [@chen2016xgboost]. This term is defined as
-$$
-\Omega(f) = \gamma T + \frac{1}{2} \lambda \sum_{j=1}^{T} w_j^2,
-$$
-with $T$ denoting the number of leaves in the tree and $w_j$ the weight of leaf $j$. The regularization term encourages simpler trees and smooth leaf weights, helping to prevent overfitting.
-
-The ensemble structure allows the model to reduce bias by combining multiple weak learners, while regularization controls variance by limiting tree complexity and the magnitude of leaf weights [@james2021introduction]. This balance between bias and variance enables XGBoost to achieve strong predictive performance while maintaining good generalization.
-
-### Gradient Boosting Machines
-
-The tree ensemble is constructed in a stage-wise manner, where weak learners are added iteratively to improve the model [@friedman2001greedy]. At iteration $t$, the prediction is given by
-$$
-\hat{y}_i^{(t)} = \hat{y}_i^{(t-1)} + f_t(x_i),
-$$
-with $f_t \in \mathcal{F}$ denoting the newly added regression tree.
-
-Gradient tree boosting can be interpreted as gradient descent in function space, where each new learner is chosen to minimize the loss function in the direction of the negative gradient [@friedman2001greedy]. Specifically, the new tree at iteration $t$ is trained to fit the negative first order gradient
-$$
--g_i^{(t)} = -\left. \frac{\partial \ell(y_i, \hat{y})}{\partial \hat{y}} \right|_{\hat{y} = \hat{y}_i^{(t-1)}}.
-$$
-
-XGBoost extends this framework by explicitly approximating the objective function using a second-order Taylor expansion of the loss around the current predictions:
-$$
-\ell(y_i, \hat{y}_i^{(t-1)} + f_t(x_i)) \approx \ell(y_i, \hat{y}_i^{(t-1)}) + g_i f_t(x_i) + \frac{1}{2} h_i f_t(x_i)^2,
-$$
-where
-$$
-h_i = \left. \frac{\partial^2 \ell(y_i, \hat{y})}{\partial \hat{y}^2} \right|_{\hat{y} = \hat{y}_i^{(t-1)}}
-$$
-is the second order derivative of the loss [@chen2016xgboost]. By incorporating both first- and second-order information, XGBoost enables efficient optimization of tree structures and leaf weights within each boosting iteration.
-
 
 # Applications
 ## Support Vector Regression
-
-```{r, preprocessing, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
 # Avoid categorical variables with many unique values because they will create many dummy variables. 
 columns_to_use <- c(
   "Number.of.Bags",
@@ -485,8 +424,7 @@ test_data  <- data.frame(model.matrix(~ ., data = test_data))[,-1]
 
 ```
 
-
-```{r, stats, echo=FALSE}
+```{r, echo=FALSE}
 # print(paste0(
 #   "Number of training samples: ", nrow(train_data), "\n",
 #   "Number of test samples: ", nrow(test_data), "\n",
@@ -499,7 +437,6 @@ test_data  <- data.frame(model.matrix(~ ., data = test_data))[,-1]
 
 ```
 
-
 ### Support Vector Regression - Hyperparameter Optimization
 
 For the prediction of cupper points we train an SVM for regression on the data set, holding out the test data set for final evaluation. 
@@ -508,7 +445,7 @@ We use a grid search for different values for cost and epsilon for a radial, lin
 
 
 
-```{r, svm-training, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
 
 
 
@@ -731,10 +668,7 @@ print(paste("MAE:", mae))
 
 
 ```
-
-
 The best performing kernel is the linear kernel, which means the relationship between the features and the target variable is best approximated by a multidimensional hyperplane.
-
 
 ```{r, echo=FALSE, fig.height=3}
 # Plot the predictions vs the true values
@@ -754,7 +688,6 @@ random_prediction <- predict(svm_model, random_data)
 
 ```
 
-
 Here, we can see the predictions vs. the true values for the test data set. We can see that aside from two outliers, the predictions are close to the true values.
 
 
@@ -764,7 +697,7 @@ Here, we can see the predictions vs. the true values for the test data set. We c
 # XAI and Comparison of the Models SVR and XGBoost
 ## Permutation Feature Importance (PFI)
 **FOR SVM PFI;** The chart shows us exactly which "ingredients" the model thinks are most important for a high-quality cup of coffee. Flavor and Aftertaste are the clear winners here; when the model loses track of these, its accuracy drops the most. Balance and Acidity also help quite a bit, but they aren't as critical as the overall taste. Interestingly, all the "technical" details—like how much the Bag Weighs, the Altitude where it was grown, or the Moisture level don't effect significantly. Basically, the model has learned that if the coffee tastes great and has a clean finish, the technical background don't change the final score very much.
-```{r, fig.width=7, fig.height=4}
+```{r}
 # Create an "Explainer" object. Tell Dalex how to talk to the svm_model
 explainer_svm <- DALEX::explain(
   model = svm_model, 
@@ -860,6 +793,7 @@ plot(ale_results) +
   theme_bw()
 ```
 
+
 ## Shapley Additive Explanations (SHAP)
 The SHAP is a Local Explanation, which acts like a "scorecard" for one specific cup of coffee to show why it received its particular prediction.
 
@@ -883,10 +817,3 @@ plot(shap_local) +
   labs(title = "Local Explanation for a Single Coffee Sample",
        subtitle = "Contribution of each feature to the specific Cupper Points prediction")
 ```
-
-
-# Literature
-
-<div id="refs"></div>
-
-

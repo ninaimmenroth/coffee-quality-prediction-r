@@ -1,0 +1,510 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\documentclass[
+]{article}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{5}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Machine Learning II Project Report},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Machine Learning II Project Report}
+\usepackage{etoolbox}
+\makeatletter
+\providecommand{\subtitle}[1]{% add subtitle to \maketitle
+  \apptocmd{\@title}{\par {\large #1 \par}}{}{}
+}
+\makeatother
+\subtitle{The Analysis of the Coffee Quality Dataset}
+\author{}
+\date{\vspace{-2.5em}2025-12-31}
+
+\begin{document}
+\maketitle
+
+{
+\setcounter{tocdepth}{2}
+\tableofcontents
+}
+\newpage
+
+\section{Introduction}\label{introduction}
+
+This report explores the Coffee Quality dataset, walking through
+everything from initial descriptive analysis to the math and application
+of machine learning. Our goal is to use these models to move beyond
+simple numbers and extract real, meaningful insights into what defines a
+high-quality cup of coffee.
+
+\subsection{Descriptive Analysis}\label{descriptive-analysis}
+
+\textbf{Summary of the Descriptive Analysis:} The dataset has 1,311
+coffee evaluations (observations) with 44 different variables. It's a
+mix of sensory scores (like how the coffee tastes) and environmental
+data (like where it was grown). Out of these, \textbf{24 variables are
+categorical and 20 are numerical}. For our project, we decided to use
+Cupper Points as our target variable. We avoided ``Total Cup Points''
+because that number is just a simple sum of the other scores, which
+would make the prediction too easy and less meaningful.
+
+\textbf{Dealing with Missing Data} One of the first things we noticed
+was that a lot of the categorical (text) data is missing. Because there
+were so many gaps, it was hard to use many of these variables in our
+models. Instead, we focused our energy on the variables that really
+mattered and tried to fill in the blanks for critical info like
+Altitude.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Read the data}
+\NormalTok{coffee\_data }\OtherTok{\textless{}{-}} \FunctionTok{read.csv}\NormalTok{(}\StringTok{"\textasciitilde{}/ML2 arabica{-}coffee{-}analayze/arabica\_data\_cleaned.csv"}\NormalTok{, }\AttributeTok{na.strings =} \FunctionTok{c}\NormalTok{(}\StringTok{""}\NormalTok{, }\StringTok{"NA"}\NormalTok{, }\StringTok{" "}\NormalTok{, }\StringTok{"n/a"}\NormalTok{))}
+\CommentTok{\# 1. Select the features you want to focus on}
+\NormalTok{selected\_features }\OtherTok{\textless{}{-}}\NormalTok{ coffee\_data }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{select}\NormalTok{(Cupper.Points, altitude\_mean\_meters, Aroma, Flavor, unit\_of\_measurement, Processing.Method, }
+\NormalTok{         Bag.Weight, Variety, Lot.Number, Quakers, Country.of.Origin)}
+
+\CommentTok{\# 2. Calculate missing values and prepare for plotting}
+\NormalTok{missing\_data }\OtherTok{\textless{}{-}}\NormalTok{ selected\_features }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{summarise}\NormalTok{(}\FunctionTok{across}\NormalTok{(}\FunctionTok{everything}\NormalTok{(), }\SpecialCharTok{\textasciitilde{}} \FunctionTok{sum}\NormalTok{(}\FunctionTok{is.na}\NormalTok{(.)))) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{pivot\_longer}\NormalTok{(}\FunctionTok{everything}\NormalTok{(), }\AttributeTok{names\_to =} \StringTok{"Feature"}\NormalTok{, }\AttributeTok{values\_to =} \StringTok{"Missing\_Count"}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Percentage =}\NormalTok{ (Missing\_Count }\SpecialCharTok{/} \FunctionTok{nrow}\NormalTok{(coffee\_data)) }\SpecialCharTok{*} \DecValTok{100}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{arrange}\NormalTok{(}\FunctionTok{desc}\NormalTok{(Missing\_Count)) }\CommentTok{\# Sort so the biggest problem is first}
+
+\CommentTok{\# 3. Create the bar plot}
+\FunctionTok{ggplot}\NormalTok{(missing\_data, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =} \FunctionTok{reorder}\NormalTok{(Feature, }\SpecialCharTok{{-}}\NormalTok{Missing\_Count), }\AttributeTok{y =}\NormalTok{ Missing\_Count)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_col}\NormalTok{(}\AttributeTok{fill =} \StringTok{"firebrick"}\NormalTok{, }\AttributeTok{color =} \StringTok{"white"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_text}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{label =} \FunctionTok{paste0}\NormalTok{(}\FunctionTok{round}\NormalTok{(Percentage, }\DecValTok{1}\NormalTok{), }\StringTok{"\%"}\NormalTok{)), }
+            \AttributeTok{vjust =} \SpecialCharTok{{-}}\FloatTok{0.5}\NormalTok{, }\AttributeTok{size =} \FloatTok{3.5}\NormalTok{) }\SpecialCharTok{+} \CommentTok{\# Add percentage labels above bars}
+  \FunctionTok{theme\_minimal}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{ylim}\NormalTok{(}\DecValTok{0}\NormalTok{, }\FunctionTok{max}\NormalTok{(missing\_data}\SpecialCharTok{$}\NormalTok{Missing\_Count) }\SpecialCharTok{+} \DecValTok{50}\NormalTok{) }\SpecialCharTok{+} \CommentTok{\# Add space for labels}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Missing Values Count in Selected Features"}\NormalTok{,}
+       \AttributeTok{x =} \StringTok{"Feature"}\NormalTok{,}
+       \AttributeTok{y =} \StringTok{"Number of Missing Observations"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{axis.text.x =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{angle =} \DecValTok{45}\NormalTok{, }\AttributeTok{hjust =} \DecValTok{1}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics{GroupN_Report_files/figure-latex/unnamed-chunk-1-1} \end{center}
+
+\textbf{The Distribution of the Variables} When we looked at the
+histograms and boxplots for the sensory variables, we saw that they all
+look very similar. Most of the scores for things like Aroma or Flavor
+are clustered closely together, usually between 7 and 8. We also noticed
+several outliers\emph{(coffee samples that scored much higher or lower
+than the rest)}.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Prepare the data in \textquotesingle{}long\textquotesingle{} format}
+\NormalTok{long\_data }\OtherTok{\textless{}{-}}\NormalTok{ coffee\_data }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(Aroma, Flavor, Cupper.Points) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{pivot\_longer}\NormalTok{(}\FunctionTok{everything}\NormalTok{(), }\AttributeTok{names\_to =} \StringTok{"Feature"}\NormalTok{, }\AttributeTok{values\_to =} \StringTok{"Score"}\NormalTok{)}
+
+\CommentTok{\# Create the Horizontal Combined Boxplot (Left side)}
+\NormalTok{p\_box }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(long\_data, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{y =}\NormalTok{ Feature, }\AttributeTok{x =}\NormalTok{ Score, }\AttributeTok{fill =}\NormalTok{ Feature)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_boxplot}\NormalTok{(}\AttributeTok{alpha =} \FloatTok{0.7}\NormalTok{, }\AttributeTok{outlier.color =} \StringTok{"red"}\NormalTok{, }\AttributeTok{outlier.shape =} \DecValTok{16}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{theme\_minimal}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{scale\_fill\_brewer}\NormalTok{(}\AttributeTok{palette =} \StringTok{"Set2"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Outlier \& Range Comparison"}\NormalTok{,}
+       \AttributeTok{y =} \StringTok{"Feature"}\NormalTok{, }\AttributeTok{x =} \StringTok{"Score"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{legend.position =} \StringTok{"none"}\NormalTok{,}
+        \AttributeTok{plot.title =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{face =} \StringTok{"bold"}\NormalTok{))}
+
+\CommentTok{\# Create Faceted Histograms (Right side)}
+\NormalTok{p\_hist }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(long\_data, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ Score, }\AttributeTok{fill =}\NormalTok{ Feature)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_histogram}\NormalTok{(}\AttributeTok{bins =} \DecValTok{20}\NormalTok{, }\AttributeTok{color =} \StringTok{"white"}\NormalTok{, }\AttributeTok{alpha =} \FloatTok{0.8}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{facet\_wrap}\NormalTok{(}\SpecialCharTok{\textasciitilde{}}\NormalTok{Feature, }\AttributeTok{ncol =} \DecValTok{1}\NormalTok{) }\SpecialCharTok{+} 
+  \FunctionTok{theme\_light}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{scale\_fill\_brewer}\NormalTok{(}\AttributeTok{palette =} \StringTok{"Set2"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Distribution Shapes"}\NormalTok{,}
+       \AttributeTok{x =} \StringTok{"Score"}\NormalTok{, }\AttributeTok{y =} \StringTok{"Count"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{legend.position =} \StringTok{"none"}\NormalTok{,}
+        \AttributeTok{strip.text =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{size =} \DecValTok{8}\NormalTok{, }\AttributeTok{face =} \StringTok{"bold"}\NormalTok{, }\AttributeTok{color =} \StringTok{"black"}\NormalTok{),}
+        \AttributeTok{plot.title =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{face =} \StringTok{"bold"}\NormalTok{))}
+
+\CommentTok{\# Combine Side{-}by{-}Side}
+\CommentTok{\# We use \textquotesingle{}|\textquotesingle{} to put them together. }
+\NormalTok{(p\_box }\SpecialCharTok{|}\NormalTok{ p\_hist) }\SpecialCharTok{+} 
+  \FunctionTok{plot\_layout}\NormalTok{(}\AttributeTok{widths =} \FunctionTok{c}\NormalTok{(}\FloatTok{1.2}\NormalTok{, }\DecValTok{1}\NormalTok{)) }\SpecialCharTok{+} 
+  \FunctionTok{plot\_annotation}\NormalTok{(}\AttributeTok{title =} \StringTok{"Sensory Feature Profile: Range and Distribution"}\NormalTok{,}
+                  \AttributeTok{theme =} \FunctionTok{theme}\NormalTok{(}\AttributeTok{plot.title =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{hjust =} \FloatTok{0.5}\NormalTok{, }\AttributeTok{size =} \DecValTok{16}\NormalTok{, }\AttributeTok{face =} \StringTok{"bold"}\NormalTok{)))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics{GroupN_Report_files/figure-latex/unnamed-chunk-2-1} \end{center}
+
+\textbf{Correlation Between Numerical Features} Finally, our correlation
+matrix showed us how these variables lean on each other. Most sensory
+features are strongly linked. if a coffee smells great (Aroma), it
+almost always tastes great (Flavor). However, some things, like
+Moisture, didn't follow the crowd. Moisture has a very low correlation
+with the other scores and even shows a slight negative trend, meaning
+more moisture sometimes leads to a slightly lower quality score.
+
+\begin{center}\includegraphics{GroupN_Report_files/figure-latex/unnamed-chunk-3-1} \end{center}
+
+\section{Data Preprocessing and
+Cleaning}\label{data-preprocessing-and-cleaning}
+
+\textbf{Feature selection:} In SVM Regression, categorical variables are
+One-Hot Encoded using dummy variables. This means, features with many
+unique values will lead to a sparse feature matrix. This is
+disadvantageous as it increases computational cost and poses the risk of
+overfitting. Additionally, categories with only a few or even only one
+observation most likely will not add to model robustness, but are adding
+noise to the signal. Therefore, we are removing categorical features
+with many unique values, only keeping columns with a low number of
+unique values. E.g. we are not including the ``Region'' column with 344
+unique values in the model training, because we'd on average have less
+than 4 observations per Region. For features with a high number of
+missing values, we either remove the column or impute the missing
+values. For instance for the ``Variety'' column, we have about 15\%
+missing values and 8\% entries ``other'' at 30 different varieties.
+Keeping those, would mean adding 30 sparse columns, and at the same time
+the information gain is most likely not too high with this many missing
+values. Therefore, we are not including this feature.
+
+\textbf{Imputation:} For the altitude column, we have about 17\% missing
+values. Here, we are imputing the missing values from the ``Region''
+column. For each observation with missing altitude, we are imputing the
+median altitude of all coffees from the same region. This covers almost
+all missing values. For the remaining observations, we are imputing the
+mean altitude of all coffees from the same country of origin. As the
+``Region'' and ``Country'' columns are not used in the model training,
+we are not creating correlated features with this imputation. We are
+imputing the missing values after the train/test split, using only
+values from the training set, to avoid data leakage from the test set
+into the training set.
+
+\textbf{Further preprocessing:} The bag weight column contains both
+pounds and kilograms, so we are converting all to kilograms. However,
+for some entries, it is unclear which unit is used. For these, we are
+averaging the weight in pounds and kilograms. This means for those
+entries the weight is certainly incorrect, but should be within an order
+of magnitude of the correct weight. If we can assume that speciality
+coffee is sold in smaller quantities, we can still gain valuable
+information from the weight.
+
+\textbf{Scaling:} The SVM method used for model training has a built in
+scaling functionality. Both predictor and target variables are scaled to
+have expected value 0 and variance 1.
+{[}\url{https://rdrr.io/rforge/e1071/man/svm.html}{]} This
+transformation is based on the training data and applied to train and
+test data sets.
+
+\section{A Brief Mathematical Overview of the ML Methods
+Used}\label{a-brief-mathematical-overview-of-the-ml-methods-used}
+
+\subsection{Support Vector Machine for
+Regression}\label{support-vector-machine-for-regression}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{set.seed}\NormalTok{(}\DecValTok{123}\NormalTok{)}
+
+
+\NormalTok{x }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\SpecialCharTok{{-}}\DecValTok{10}\NormalTok{, }\DecValTok{10}\NormalTok{, }\FloatTok{0.5}\NormalTok{) }\SpecialCharTok{+} \FunctionTok{rnorm}\NormalTok{(}\FunctionTok{length}\NormalTok{(}\FunctionTok{seq}\NormalTok{(}\SpecialCharTok{{-}}\DecValTok{10}\NormalTok{, }\DecValTok{10}\NormalTok{, }\FloatTok{0.5}\NormalTok{)), }\AttributeTok{mean =} \DecValTok{0}\NormalTok{, }\AttributeTok{sd =} \FloatTok{0.1}\NormalTok{)}
+\NormalTok{y }\OtherTok{\textless{}{-}} \DecValTok{1}\SpecialCharTok{/}\DecValTok{170} \SpecialCharTok{*}\NormalTok{ (x}\SpecialCharTok{\^{}}\DecValTok{3} \SpecialCharTok{{-}} \DecValTok{3}\SpecialCharTok{*}\NormalTok{ x}\SpecialCharTok{\^{}}\DecValTok{2} \SpecialCharTok{{-}} \DecValTok{70}\SpecialCharTok{*}\NormalTok{x }\SpecialCharTok{+} \DecValTok{5} \SpecialCharTok{+} \FunctionTok{rnorm}\NormalTok{(}\FunctionTok{length}\NormalTok{(x), }\AttributeTok{mean =} \DecValTok{0}\NormalTok{, }\AttributeTok{sd =} \DecValTok{170}\NormalTok{))}
+
+\FunctionTok{library}\NormalTok{(e1071)}
+
+\NormalTok{epsilon }\OtherTok{\textless{}{-}} \DecValTok{1}
+\NormalTok{cost }\OtherTok{\textless{}{-}} \DecValTok{1}
+
+\NormalTok{model }\OtherTok{\textless{}{-}} \FunctionTok{svm}\NormalTok{(y }\SpecialCharTok{\textasciitilde{}}\NormalTok{ x, }\AttributeTok{data =} \FunctionTok{data.frame}\NormalTok{(}\AttributeTok{x =}\NormalTok{ x, }\AttributeTok{y =}\NormalTok{ y), }\AttributeTok{epsilon =}\NormalTok{ epsilon, }\AttributeTok{cost =}\NormalTok{ cost)}
+\NormalTok{predictedY }\OtherTok{\textless{}{-}} \FunctionTok{predict}\NormalTok{(model, }\FunctionTok{data.frame}\NormalTok{(}\AttributeTok{x =}\NormalTok{ x))}
+
+\FunctionTok{plot}\NormalTok{(x, y, }\AttributeTok{pch =} \DecValTok{16}\NormalTok{, }\AttributeTok{col =} \StringTok{"grey70"}\NormalTok{)}
+\FunctionTok{lines}\NormalTok{(x, predictedY, }\AttributeTok{col =} \StringTok{"darkgreen"}\NormalTok{)}
+
+
+\CommentTok{\# Add ε{-}tube}
+\FunctionTok{polygon}\NormalTok{(}
+ \FunctionTok{c}\NormalTok{(x, }\FunctionTok{rev}\NormalTok{(x)),}
+ \FunctionTok{c}\NormalTok{(predictedY }\SpecialCharTok{+}\NormalTok{ epsilon, }\FunctionTok{rev}\NormalTok{(predictedY }\SpecialCharTok{{-}}\NormalTok{ epsilon)),}
+ \AttributeTok{border =} \ConstantTok{NA}\NormalTok{,}
+ \AttributeTok{col =} \FunctionTok{rgb}\NormalTok{(}\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{, }\DecValTok{0}\NormalTok{, }\FloatTok{0.15}\NormalTok{)}
+\NormalTok{)}
+
+\CommentTok{\# mark the 17 points that are the furthest from the predictedY }
+\NormalTok{idx\_furthest }\OtherTok{\textless{}{-}} \FunctionTok{order}\NormalTok{(}\FunctionTok{abs}\NormalTok{(predictedY }\SpecialCharTok{{-}}\NormalTok{ y), }\AttributeTok{decreasing =} \ConstantTok{TRUE}\NormalTok{)[}\DecValTok{1}\SpecialCharTok{:}\DecValTok{17}\NormalTok{]}
+\FunctionTok{points}\NormalTok{(x[idx\_furthest], y[idx\_furthest], }
+       \AttributeTok{col =} \StringTok{"\#000000"}\NormalTok{, }
+       \AttributeTok{bg =} \StringTok{"\#ffffff00"}\NormalTok{,}
+       \AttributeTok{pch =} \DecValTok{21}\NormalTok{,}
+       \AttributeTok{cex =} \FloatTok{1.6}\NormalTok{,}
+       \AttributeTok{lwd =} \DecValTok{1}\NormalTok{)}
+
+
+\CommentTok{\# Add an arrow (dashed, double sided, between ypred at x = 10 and ypred at x = 10   + 1 )}
+\FunctionTok{arrows}\NormalTok{(}\DecValTok{10}\NormalTok{, predictedY[}\FunctionTok{length}\NormalTok{(predictedY)], }\DecValTok{10}\NormalTok{, predictedY[}\FunctionTok{length}\NormalTok{(predictedY)] }\SpecialCharTok{+}\NormalTok{ epsilon, }\AttributeTok{length =} \FloatTok{0.1}\NormalTok{, }\AttributeTok{lty =} \DecValTok{2}\NormalTok{, }\AttributeTok{col =} \StringTok{"black"}\NormalTok{, }\AttributeTok{code =} \DecValTok{3}\NormalTok{)}
+\CommentTok{\# add a text "ε" at the end of the arrow}
+\FunctionTok{text}\NormalTok{(}\DecValTok{10}\NormalTok{, predictedY[}\FunctionTok{length}\NormalTok{(predictedY)] }\SpecialCharTok{+} \DecValTok{1}\SpecialCharTok{/}\DecValTok{2}\NormalTok{, }\FunctionTok{expression}\NormalTok{(epsilon), }\AttributeTok{pos =} \DecValTok{4}\NormalTok{)}
+
+\CommentTok{\# Add an arrow between 5,{-}5 and 5,{-}2.5 with text xsi\_i star (flipped direction)}
+\FunctionTok{arrows}\NormalTok{(}\FloatTok{5.05}\NormalTok{, }\SpecialCharTok{{-}}\DecValTok{4}\NormalTok{, }\FloatTok{5.05}\NormalTok{, }\SpecialCharTok{{-}}\FloatTok{2.28}\NormalTok{, }\AttributeTok{length =} \FloatTok{0.1}\NormalTok{, }\AttributeTok{lty =} \DecValTok{2}\NormalTok{, }\AttributeTok{col =} \StringTok{"black"}\NormalTok{)}
+\FunctionTok{text}\NormalTok{(}\FloatTok{5.05}\NormalTok{, }\SpecialCharTok{{-}}\FloatTok{3.2}\NormalTok{, }\FunctionTok{expression}\NormalTok{(xi[j]}\SpecialCharTok{\^{}}\StringTok{"*"}\NormalTok{), }\AttributeTok{pos =} \DecValTok{4}\NormalTok{)}
+
+
+\CommentTok{\# Add an arrow between the 13th last point and the 13th last point {-} 1 with text xsi\_j}
+\FunctionTok{arrows}\NormalTok{(x[}\FunctionTok{length}\NormalTok{(x) }\SpecialCharTok{{-}} \DecValTok{12}\NormalTok{], y[}\FunctionTok{length}\NormalTok{(y) }\SpecialCharTok{{-}} \DecValTok{12}\NormalTok{], x[}\FunctionTok{length}\NormalTok{(x) }\SpecialCharTok{{-}} \DecValTok{12}\NormalTok{], y[}\FunctionTok{length}\NormalTok{(y) }\SpecialCharTok{{-}} \DecValTok{12}\NormalTok{]}\SpecialCharTok{{-}} \FloatTok{0.5}\NormalTok{, }\AttributeTok{length =} \FloatTok{0.1}\NormalTok{, }\AttributeTok{lty =} \DecValTok{2}\NormalTok{, }\AttributeTok{col =} \StringTok{"black"}\NormalTok{)}
+\FunctionTok{text}\NormalTok{(x[}\FunctionTok{length}\NormalTok{(x) }\SpecialCharTok{{-}} \DecValTok{12}\NormalTok{], y[}\FunctionTok{length}\NormalTok{(y) }\SpecialCharTok{{-}} \DecValTok{12}\NormalTok{] }\SpecialCharTok{{-}} \FloatTok{0.3}\NormalTok{, }\FunctionTok{expression}\NormalTok{(xi[k]), }\AttributeTok{pos =} \DecValTok{4}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{center}\includegraphics[width=1\linewidth]{GroupN_Report_files/figure-latex/unnamed-chunk-4-1} \end{center}
+
+Support Vector Regression expands support Vector Machines from discrete
+classification to a continuos regression model.
+
+For the regression task, instead of fitting a hyperplane, we are trying
+to fit a (multidimensional) function \(f(x)\) to the data. Similar as in
+the classification task, we draw a margin around the function. However,
+now the margin \(\varepsilon\) is fixed at the start. (Note that
+\(\varepsilon\) here, is not the slack variable as in Hasties and
+Tibshirani, but rather defines the width of the margin. Also, we don't
+aim to optimize the margin anymore, but instead fix it before the
+computation starts). We want to find a function f(x) that is as flat as
+possible, while fitting all points into the required margin. Again, we
+allow for some slack using slack variables. A wider margin decreases the
+risk of overfitting, while a smaller margin captures more intricacies of
+the data.
+
+Mathematically speaking, want to find a function \(f(x)\) with
+\(| f(x_i) - y_i |  \leq \varepsilon\) for all \(i\). To avoid
+overfitting, we also introduce the constraint of making the function as
+flat as possible. ``Flatness'' in this context is a measure of how
+sensitive the function is to change. For a linear function
+\(f(x) = x^\top \beta + b\) increasing this flatness can be expressed
+through minimizing the norm of the function gradient:
+\(\lVert \beta \rVert\). Minimizing the expression
+\(\frac{1}{2} \lVert \beta \rVert^2\) leads to the same optimum, while
+allowing for more elegant mathematical solutions, and is therefore used
+for computation.
+
+Again, we want to allow for some slack, so as in the SVM for
+classification, we are introducing slack variables \(\xi_i\) and
+\(\xi_i^\ast\). These slack variables allow for some room for margin
+violations. The optimization problem we want to solve is to minimize:
+
+\[
+\frac{1}{2} \lVert \beta \rVert^2 + K \sum_{i=1}^n (\xi_i + \xi_i^\ast)
+\] subject to: \[
+y_i - f(x_i) \leq \varepsilon + \xi_i, 
+\] \[
+f(x_i) - y_i \leq \varepsilon + \xi_i^\ast
+\] and \[
+\xi_i > 0, \xi_i^\ast > 0 \quad \forall i
+\]
+
+where \(K\) is fixed and \(\beta\), \(\xi\) and \(\xi^\ast\) are
+variable. The factor \(K\) is introduced as cost for regularization
+purposes. It is choosen a priori to determine how strong the tradeoff
+between flatness and overfitting should be. A larger \(K\) leads to a
+stronger impact of the term, therefore penalizing stronger margin
+violations more heavily and resulting in a less flat function curve
+(higher bias, lower variance). Conversly, a smaller \(K\) leads to a
+flatter curve (lower bias, higher variance).
+
+As in the SVM for classification, this can be generalized to non-linear
+functions by transforming the features using kernels.
+
+\subsection{XGBoost}\label{xgboost}
+
+\section{Application of SVM Method}\label{application-of-svm-method}
+
+\subsubsection{Support Vector Regression - Hyperparameter
+Optimization}\label{support-vector-regression---hyperparameter-optimization}
+
+For the prediction of cupper points we train an SVM for regression on
+the data set, holding out the test data set for final evaluation. To
+choose appropriate hyperparameters, we conduct a hyperparameter
+optimization on the training data set using 10-fold cross-validation. We
+use a grid search for different values for cost and epsilon for a
+radial, linear, and 2-degree polynomial kernel. We compare the mean
+absolute error between runs to choose the best-performing hyperparameter
+combination. Finally, we train a model with these hyperparameters on the
+entire training set and evaluate on the test data set.
+
+\begin{center}\includegraphics{GroupN_Report_files/figure-latex/unnamed-chunk-7-1} \end{center}
+
+These figures show the mean absolute error for the different
+hyperparameters by kernel. The best performing hyperparameter
+combination for each kernel are marked with orange points.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Compare best results for each kernel by getting the row with the lowest error}
+\NormalTok{best\_runs }\OtherTok{\textless{}{-}}\NormalTok{ best\_runs[}\FunctionTok{order}\NormalTok{(best\_runs}\SpecialCharTok{$}\NormalTok{err),]}
+
+\NormalTok{best\_run }\OtherTok{\textless{}{-}}\NormalTok{ best\_runs[}\DecValTok{1}\NormalTok{,]}
+
+\FunctionTok{cat}\NormalTok{(}\StringTok{"Best SVM kernel and parameters selected:}\SpecialCharTok{\textbackslash{}n}\StringTok{"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Best SVM kernel and parameters selected:
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{print}\NormalTok{(best\_run[,}\FunctionTok{c}\NormalTok{(}\StringTok{"kernel"}\NormalTok{, }\StringTok{"epsilon"}\NormalTok{, }\StringTok{"cost"}\NormalTok{)])}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##   kernel epsilon      cost
+## 2 linear     0.1 0.0078125
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Train final model with best parameters}
+\NormalTok{epsilon }\OtherTok{=}\NormalTok{ best\_run}\SpecialCharTok{$}\NormalTok{epsilon}
+\NormalTok{cost }\OtherTok{=}\NormalTok{ best\_run}\SpecialCharTok{$}\NormalTok{cost}
+
+\NormalTok{svm\_model }\OtherTok{\textless{}{-}} \FunctionTok{svm}\NormalTok{(Cupper.Points }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ., }\AttributeTok{data =}\NormalTok{ train\_data,}
+                 \AttributeTok{cost =}\NormalTok{ cost,}
+                 \AttributeTok{epsilon =}\NormalTok{ epsilon, }
+                 \AttributeTok{kernel =}\NormalTok{ best\_run}\SpecialCharTok{$}\NormalTok{kernel)}
+
+\CommentTok{\# Predict on test set}
+\NormalTok{predictions }\OtherTok{\textless{}{-}} \FunctionTok{predict}\NormalTok{(svm\_model, test\_data)}
+
+\CommentTok{\# Evaluate model performance}
+\NormalTok{mae }\OtherTok{\textless{}{-}} \FunctionTok{mean}\NormalTok{(}\FunctionTok{abs}\NormalTok{(predictions }\SpecialCharTok{{-}}\NormalTok{ test\_data[, }\StringTok{"Cupper.Points"}\NormalTok{]), }\AttributeTok{na.rm =} \ConstantTok{TRUE}\NormalTok{)}
+\NormalTok{mse }\OtherTok{\textless{}{-}} \FunctionTok{mean}\NormalTok{((predictions }\SpecialCharTok{{-}}\NormalTok{ test\_data[, }\StringTok{"Cupper.Points"}\NormalTok{])}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{, }\AttributeTok{na.rm =} \ConstantTok{TRUE}\NormalTok{)}
+\NormalTok{rmse }\OtherTok{\textless{}{-}} \FunctionTok{sqrt}\NormalTok{(mse)}
+\CommentTok{\# print(paste("RMSE:", rmse))}
+\FunctionTok{print}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"MAE:"}\NormalTok{, mae))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] "MAE: 0.143099275160558"
+\end{verbatim}
+
+The best performing kernel is the linear kernel, which means the
+relationship between the features and the target variable is best
+approximated by a multidimensional hyperplane.
+
+\begin{center}\includegraphics{GroupN_Report_files/figure-latex/unnamed-chunk-9-1} \end{center}
+
+Here, we can see the predictions vs.~the true values for the test data
+set. We can see that aside from two outliers, the predictions are close
+to the true values.
+
+\section{Application of XGBoost
+Method}\label{application-of-xgboost-method}
+
+\end{document}
