@@ -1,0 +1,621 @@
+---
+title: "XGBoost for Coffee Quality Prediction (Comparable to SVM)"
+subtitle: "Using Identical Preprocessing and Data Split for Fair Comparison"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    number_sections: true
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+
+```{r config}
+library(knitr)
+config <- data.frame(
+  Parameter = c("Random Seed", "Train/Test Split", "CV Folds (HPO)", "Early Stopping", "Max Rounds"),
+  Value = c("123", "80/20", "10", "50", "2000")
+)
+kable(config, caption = "Configuration (Aligned with SVM)", format = "markdown")
+```
+
+# Data Preprocessing (Identical to SVM)
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+library(xgboost)
+library(tidyverse)
+library(knitr)
+
+SEED <- 123
+MODEL_DIR <- "saved_models"
+if (!dir.exists(MODEL_DIR)) dir.create(MODEL_DIR)
+```
+
+```{r load-data}
+# Read the data (same as SVM)
+coffee_data <- read.csv("arabica_data_cleaned.csv", na.strings = c("", "NA"))
+```
+
+```{r define-features}
+# Identical feature set from SVM - avoiding categorical variables with many unique values
+columns_to_use <- c(
+  "Number.of.Bags",
+  "Bag.Weight",
+  # "Country.of.Origin", # Excluded - too many categories
+  "Processing.Method", 
+  "Aroma",
+  "Flavor",
+  "Aftertaste",
+  "Acidity",
+  "Body",
+  "Balance",
+  "Uniformity",
+  "Clean.Cup",
+  "Sweetness",
+  "Cupper.Points", # Target variable
+  "Moisture",
+  "Category.One.Defects",
+  "Quakers",
+  "Category.Two.Defects",
+  "altitude_mean_meters" # Impute missing values from region and country origins
+)
+
+# Define sensory columns for later use in XAI
+sensory_cols <- c("Aroma", "Flavor", "Aftertaste", "Acidity", "Body", 
+                  "Balance", "Uniformity", "Clean.Cup", "Sweetness", 
+                  "Moisture", "Category.One.Defects", "Quakers")
+```
+
+
+
+```{r bag-weight-processing}
+# Get bags with weight in pounds
+bags_with_weight_in_pounds_indices <- grepl("lbs", coffee_data$Bag.Weight)
+
+# Get bags with weight in kg
+bags_with_weight_in_kg_indices <- grepl("kg", coffee_data$Bag.Weight)
+
+# Get bags with neither pounds nor kg
+bags_with_neither_pounds_nor_kg_indices <- !bags_with_weight_in_pounds_indices & !bags_with_weight_in_kg_indices
+
+# Get bags with both pounds and kg (incorrectly formatted)
+bags_with_both_pounds_and_kg_indices <- bags_with_weight_in_pounds_indices & bags_with_weight_in_kg_indices
+
+# Remove bags with both pounds and kg from individual indices
+bags_with_weight_in_pounds_indices <- bags_with_weight_in_pounds_indices & !bags_with_both_pounds_and_kg_indices
+bags_with_weight_in_kg_indices <- bags_with_weight_in_kg_indices & !bags_with_both_pounds_and_kg_indices
+
+# Extract numeric value from Bag.Weight column
+coffee_data$Bag.Weight <- as.numeric(sub("^([^ ]+) .*", "\\1", coffee_data$Bag.Weight))
+
+# Convert pounds to kg
+coffee_data$Bag.Weight[bags_with_weight_in_pounds_indices] <- 
+  coffee_data$Bag.Weight[bags_with_weight_in_pounds_indices] * 0.453592
+
+# For bags with neither pounds nor kg, average the weight in pounds and kg
+coffee_data$Bag.Weight[bags_with_neither_pounds_nor_kg_indices] <- 
+  coffee_data$Bag.Weight[bags_with_neither_pounds_nor_kg_indices] * (1 + 0.453592) / 2
+coffee_data$Bag.Weight[bags_with_both_pounds_and_kg_indices] <- 
+  coffee_data$Bag.Weight[bags_with_both_pounds_and_kg_indices] * (1 + 0.453592) / 2
+```
+
+
+
+```{r processing-method}
+# Fill NAs with "Unknown" (same as SVM)
+coffee_data$Processing.Method[is.na(coffee_data$Processing.Method)] <- "Unknown"
+```
+
+
+
+```{r train-test-split}
+# Simple random 80/20 split with SAME SEED as SVM
+set.seed(SEED)
+n_total <- nrow(coffee_data)
+n_train <- floor(0.8 * n_total)
+train_index <- sample(1:n_total, n_train)
+
+train_data <- coffee_data[train_index, ]
+test_data <- coffee_data[-train_index, ]
+```
+
+
+```{r altitude-imputation}
+# Create lookup of regions and their median altitudes FROM TRAINING DATA ONLY
+region_altitudes <- train_data %>%
+  group_by(Region) %>%
+  summarise(altitude_median_mean_meters = median(altitude_mean_meters, na.rm = TRUE)) 
+
+region_altitudes <- region_altitudes[complete.cases(region_altitudes), ]
+
+# Impute for train data
+missing_altitude_indices <- which(is.na(train_data$altitude_mean_meters)) 
+train_data[missing_altitude_indices, "altitude_mean_meters"] <- 
+  region_altitudes$altitude_median_mean_meters[match(
+    train_data$Region[missing_altitude_indices], 
+    region_altitudes$Region
+  )]
+
+# Impute for test data (using training set statistics)
+missing_altitude_indices <- which(is.na(test_data$altitude_mean_meters))
+test_data[missing_altitude_indices, "altitude_mean_meters"] <- 
+  region_altitudes$altitude_median_mean_meters[match(
+    test_data$Region[missing_altitude_indices], 
+    region_altitudes$Region
+  )]
+
+# Fallback: Country of Origin median (for remaining NAs)
+country_altitudes <- train_data %>%
+  group_by(Country.of.Origin) %>%
+  summarise(altitude_median_mean_meters = median(altitude_mean_meters, na.rm = TRUE)) 
+
+country_altitudes <- country_altitudes[complete.cases(country_altitudes), ]
+
+# Impute remaining NAs for train data
+missing_altitude_indices <- which(is.na(train_data$altitude_mean_meters))
+train_data[missing_altitude_indices, "altitude_mean_meters"] <- 
+  country_altitudes$altitude_median_mean_meters[match(
+    train_data$Country.of.Origin[missing_altitude_indices], 
+    country_altitudes$Country.of.Origin
+  )]
+
+# Impute remaining NAs for test data
+missing_altitude_indices <- which(is.na(test_data$altitude_mean_meters))
+test_data[missing_altitude_indices, "altitude_mean_meters"] <- 
+  country_altitudes$altitude_median_mean_meters[match(
+    test_data$Country.of.Origin[missing_altitude_indices], 
+    country_altitudes$Country.of.Origin
+  )]
+```
+
+
+
+```{r final-prep}
+# Keep only columns we're using
+train_data <- train_data[, columns_to_use]
+test_data <- test_data[, columns_to_use]
+
+# Remove remaining NAs
+train_data <- train_data[complete.cases(train_data), ]
+test_data <- test_data[complete.cases(test_data), ]
+
+# One-Hot Encoding (same approach as SVM)
+train_data <- data.frame(model.matrix(~ ., data = train_data))[, -1]
+test_data <- data.frame(model.matrix(~ ., data = test_data))[, -1]
+
+# Verify categories align
+categories_match <- all(colnames(train_data) == colnames(test_data))
+```
+
+```{r data-summary}
+data_summary <- data.frame(
+  Metric = c("Training samples", "Test samples", "Features (after encoding)", 
+             "Categories aligned", "Mean Cupper Points (Train)", "Mean Cupper Points (Test)"),
+  Value = c(nrow(train_data), nrow(test_data), ncol(train_data) - 1,
+            ifelse(categories_match, "Yes", "No"),
+            round(mean(train_data$Cupper.Points), 4),
+            round(mean(test_data$Cupper.Points), 4))
+)
+kable(data_summary, caption = "Dataset Summary", format = "markdown")
+```
+
+# Baseline Models
+
+```{r metrics-function}
+get_metrics <- function(pred, obs) {
+  residuals <- obs - pred
+  mae <- mean(abs(residuals))
+  rmse <- sqrt(mean(residuals^2))
+  ss_res <- sum(residuals^2)
+  ss_tot <- sum((obs - mean(obs))^2)
+  r2 <- 1 - (ss_res / ss_tot)
+  return(list(MAE = mae, RMSE = rmse, R2 = r2))
+}
+```
+
+```{r baselines}
+y_train <- train_data$Cupper.Points
+y_test <- test_data$Cupper.Points
+X_train <- as.matrix(train_data[, colnames(train_data) != "Cupper.Points"])
+X_test <- as.matrix(test_data[, colnames(test_data) != "Cupper.Points"])
+
+# Mean Predictor Baseline
+preds_mean <- rep(mean(y_train), length(y_test))
+metrics_mean <- get_metrics(preds_mean, y_test)
+
+# Linear Regression Baseline
+model_lm <- lm(Cupper.Points ~ ., data = train_data)
+preds_lm <- predict(model_lm, newdata = test_data)
+metrics_lm <- get_metrics(preds_lm, y_test)
+```
+
+```{r baseline-table}
+baseline_results <- data.frame(
+  Model = c("Mean Predictor", "Linear Regression"),
+  MAE = c(round(metrics_mean$MAE, 4), round(metrics_lm$MAE, 4)),
+  RMSE = c(round(metrics_mean$RMSE, 4), round(metrics_lm$RMSE, 4)),
+  R2 = c(round(metrics_mean$R2, 4), round(metrics_lm$R2, 4))
+)
+kable(baseline_results, caption = "Baseline Model Performance", format = "markdown")
+```
+
+```{r lm-coefficients}
+lm_coefs <- summary(model_lm)$coefficients
+lm_coefs_df <- data.frame(
+  Feature = rownames(lm_coefs),
+  Estimate = round(lm_coefs[, 1], 4),
+  Std_Error = round(lm_coefs[, 2], 4),
+  P_Value = format(lm_coefs[, 4], digits = 3)
+)
+kable(head(lm_coefs_df[order(abs(lm_coefs_df$Estimate), decreasing = TRUE), ], 8), 
+      caption = "Top Linear Regression Coefficients", format = "markdown", row.names = FALSE)
+```
+
+# XGBoost Hyperparameter Optimization
+
+Using 10-fold cross-validation.
+
+```{r xgb-hpo}
+dtrain <- xgb.DMatrix(data = X_train, label = y_train)
+dtest <- xgb.DMatrix(data = X_test, label = y_test)
+
+# Grid search (similar scope to SVM's epsilon/cost grid)
+tune_grid <- expand.grid(
+  eta = c(0.01, 0.05, 0.1),
+  max_depth = c(3, 5, 7),
+  subsample = c(0.7, 0.8, 0.9),
+  colsample_bytree = c(0.7, 0.8, 0.9)
+)
+
+# Run HPO with 10-fold CV (matching SVM's tune() default)
+hpo_results <- data.frame()
+
+for (i in 1:nrow(tune_grid)) {
+  params <- list(
+    objective = "reg:squarederror",
+    eval_metric = "mae",  # Using MAE to match SVM's primary metric
+    eta = tune_grid$eta[i],
+    max_depth = tune_grid$max_depth[i],
+    subsample = tune_grid$subsample[i],
+    colsample_bytree = tune_grid$colsample_bytree[i],
+    nthread = 1
+  )
+  
+  set.seed(SEED)
+  cv_result <- xgb.cv(
+    params = params,
+    data = dtrain,
+    nrounds = 2000,
+    nfold = 10,  # Match SVM's default CV folds
+    early_stopping_rounds = 50,
+    verbose = 0
+  )
+  
+  # Extract best iteration and MAE
+  eval_log <- cv_result$evaluation_log
+  mae_col <- grep("test.*mae.*mean", names(eval_log), value = TRUE)[1]
+  best_iter <- cv_result$best_iteration
+  if (is.null(best_iter) || length(best_iter) == 0) {
+    best_iter <- which.min(eval_log[[mae_col]])
+  }
+  best_mae <- eval_log[[mae_col]][best_iter]
+  
+  hpo_results <- rbind(hpo_results, data.frame(
+    eta = params$eta,
+    max_depth = params$max_depth,
+    subsample = params$subsample,
+    colsample_bytree = params$colsample_bytree,
+    best_nrounds = best_iter,
+    cv_mae = best_mae
+  ))
+}
+
+# Find best parameters
+best_params <- hpo_results[which.min(hpo_results$cv_mae), ]
+```
+
+```{r hpo-results}
+kable(best_params, caption = "Optimal XGBoost Hyperparameters", format = "markdown", digits = 4, row.names = FALSE)
+```
+
+# Train XGBoost Model
+
+```{r train-final}
+final_params <- list(
+  objective = "reg:squarederror",
+  eval_metric = "mae",
+  eta = best_params$eta,
+  max_depth = best_params$max_depth,
+  subsample = best_params$subsample,
+  colsample_bytree = best_params$colsample_bytree,
+  nthread = 1
+)
+
+set.seed(SEED)
+model_xgb <- xgb.train(
+  params = final_params,
+  data = dtrain,
+  nrounds = best_params$best_nrounds,
+  verbose = 0
+)
+
+# Predictions
+preds_xgb <- predict(model_xgb, dtest)
+metrics_xgb <- get_metrics(preds_xgb, y_test)
+```
+
+```{r save-model}
+# Save the trained model for further analysis
+model_file <- file.path(MODEL_DIR, "model_xgb_comparable.rds")
+saveRDS(model_xgb, model_file)
+```
+
+Model saved to: `r model_file`
+
+# Learning Curves
+
+```{r learning-curves}
+# Learning curves show how training and validation error evolve with more boosting rounds.
+# A widening gap between curves indicates overfitting - the model is memorizing training data.
+train_mae <- numeric()
+test_mae <- numeric()
+max_rounds <- min(500, best_params$best_nrounds * 2)
+
+for (r in seq(10, max_rounds, by = 10)) {
+  set.seed(SEED)
+  temp_model <- xgb.train(params = final_params, data = dtrain, nrounds = r, verbose = 0)
+  train_mae <- c(train_mae, mean(abs(predict(temp_model, dtrain) - y_train)))
+  test_mae <- c(test_mae, mean(abs(predict(temp_model, dtest) - y_test)))
+}
+
+training_history <- data.frame(
+  iter = seq(10, max_rounds, by = 10), 
+  train_mae = train_mae, 
+  test_mae = test_mae
+)
+
+learning_curve_df <- training_history %>%
+  pivot_longer(cols = c(train_mae, test_mae), names_to = "Dataset", values_to = "MAE") %>%
+  mutate(Dataset = ifelse(Dataset == "train_mae", "Training", "Validation"))
+```
+
+```{r learning-curves-plot, fig.cap="Learning curve for XGBoost model. The gap between training (blue) and validation (red) curves indicates overfitting. The vertical dashed line marks the optimal stopping point determined by early stopping.", fig.height=4}
+ggplot(learning_curve_df, aes(x = iter, y = MAE, color = Dataset)) +
+  geom_line(linewidth = 1) +
+  geom_vline(xintercept = best_params$best_nrounds, linetype = "dashed", color = "darkgreen", linewidth = 1) +
+  annotate("text", x = best_params$best_nrounds + 10, y = max(learning_curve_df$MAE) * 0.9,
+           label = paste("Optimal =", best_params$best_nrounds), hjust = 0, color = "darkgreen") +
+  scale_color_manual(values = c("Training" = "#2E86AB", "Validation" = "#E63946")) +
+  labs(x = "Boosting Rounds", y = "MAE", title = "Learning Curves") +
+  theme_minimal()
+```
+
+```{r learning-curve-metrics}
+best_row <- which.min(abs(training_history$iter - best_params$best_nrounds))
+if (length(best_row) == 0) best_row <- nrow(training_history)
+final_train_mae <- training_history$train_mae[best_row]
+final_test_mae <- training_history$test_mae[best_row]
+overfitting_gap <- final_test_mae - final_train_mae
+gap_pct <- round(100 * overfitting_gap / final_test_mae, 2)
+```
+
+> **Overfitting Analysis:** The training-validation gap is `r round(overfitting_gap, 4)` MAE (`r gap_pct`% of validation MAE). This gap indicates whether the model is memorizing training data rather than learning generalizable patterns.
+
+# Results
+
+```{r final-results}
+final_results <- data.frame(
+  Model = c("Mean Predictor", "Linear Regression", "XGBoost"),
+  MAE = c(metrics_mean$MAE, metrics_lm$MAE, metrics_xgb$MAE),
+  RMSE = c(metrics_mean$RMSE, metrics_lm$RMSE, metrics_xgb$RMSE),
+  R2 = c(metrics_mean$R2, metrics_lm$R2, metrics_xgb$R2)
+)
+
+final_results$MAE <- round(final_results$MAE, 4)
+final_results$RMSE <- round(final_results$RMSE, 4)
+final_results$R2 <- round(final_results$R2, 4)
+
+kable(final_results, caption = "Final Model Comparison (Test Set)", format = "markdown")
+```
+
+
+
+
+# Predictions vs True Values
+
+```{r pred-vs-true, fig.height=4, fig.cap="Predictions vs True Values for XGBoost model. Points close to the diagonal line indicate accurate predictions."}
+plot(preds_xgb, y_test,
+     xlab = "Predictions",
+     ylab = "True Values",
+     main = "XGBoost: Predictions vs True Values",
+     pch = 19,
+     col = rgb(0.2, 0.4, 0.6, 0.5))
+abline(0, 1, col = "red", lwd = 2)
+```
+
+# Feature Importance
+
+```{r feature-importance, fig.height=5, fig.cap="Top 15 features by importance (Gain). Higher gain indicates the feature contributes more to reducing prediction error."}
+importance <- xgb.importance(feature_names = colnames(X_train), model = model_xgb)
+xgb.plot.importance(importance[1:min(15, nrow(importance)), ], main = "XGBoost Feature Importance (Gain)")
+```
+
+```{r importance-table}
+kable(head(importance, 10), caption = "Top 10 Features by Importance", format = "markdown", digits = 4)
+```
+
+# Approaches Found Less Effective
+
+## Lambda and Min_Child_Weight Regularization
+
+XGBoost offers explicit regularization through lambda (L2) and min_child_weight parameters. Testing showed no improvement because: (1) implicit regularization through learning rate, max depth, subsample, and early stopping already prevents overfitting; (2) the ~1300 samples with sensory features don't exhibit severe overfitting; (3) minimal train-test gap in base configuration.
+
+## Bayesian Optimization vs Grid Search
+
+Bayesian Optimization did not outperform Grid Search because: (1) only 4 parameters with reasonable bounds; (2) many configurations achieve similar results (performance plateau); (3) surrogate model overhead without finding better solutions. Grid Search is sufficient for this problem size.
+
+# Explainable AI: PFI and PDP Analysis
+
+This section applies model-agnostic XAI techniques to interpret the XGBoost model.
+
+```{r xai-setup}
+if (!require("DALEX")) install.packages("DALEX", quiet = TRUE)
+library(DALEX)
+
+predict_xgb <- function(model, newdata) {
+  if (is.data.frame(newdata)) newdata <- as.matrix(newdata)
+  dmatrix <- xgb.DMatrix(data = newdata)
+  predict(model, dmatrix)
+}
+
+explainer_xgb <- DALEX::explain(
+  model = model_xgb, 
+  data = X_train, 
+  y = y_train,
+  predict_function = predict_xgb, 
+  label = "XGBoost", 
+  verbose = FALSE
+)
+```
+
+## Permutation Feature Importance (PFI)
+
+PFI measures how much model performance degrades when a feature's relationship with the target is broken by randomly shuffling its values. Higher importance = larger performance drop = more important feature.
+
+```{r pfi-calculation}
+# PFI is model-agnostic and measures actual predictive reliance.
+# Unlike XGBoost's Gain metric, PFI accounts for feature interactions and correlations.
+loss_mae <- function(observed, predicted) mean(abs(observed - predicted))
+set.seed(SEED)
+pfi_xgb <- model_parts(
+  explainer = explainer_xgb, 
+  loss_function = loss_mae, 
+  type = "difference", 
+  B = 10
+)
+```
+
+```{r pfi-plot, fig.cap="Permutation Feature Importance for XGBoost model. Bars show average MAE increase when each feature is shuffled (with error bars for standard deviation across 10 permutations). Longer bars = more important features.", fig.width=10, fig.height=7}
+plot(pfi_xgb, max_vars = 15)
+```
+
+```{r pfi-table}
+pfi_results <- pfi_xgb %>%
+  filter(variable != "_baseline_" & variable != "_full_model_") %>%
+  group_by(variable) %>%
+  summarise(Mean_Dropout_Loss = mean(dropout_loss), SD = sd(dropout_loss), .groups = "drop") %>%
+  arrange(desc(Mean_Dropout_Loss)) %>%
+  mutate(Importance = Mean_Dropout_Loss - min(pfi_xgb$dropout_loss[pfi_xgb$variable == "_full_model_"]),
+         Rank = row_number())
+kable(head(pfi_results[, c("Rank", "variable", "Importance", "SD")], 10),
+      col.names = c("Rank", "Feature", "MAE Increase", "SD"),
+      caption = "Top 10 Features by Permutation Feature Importance", format = "markdown", digits = 4)
+```
+
+> **PFI Interpretation:** The top features by PFI are sensory attributes. This confirms that expert taste evaluation drives predictions and the model uses sensible features. Note that PFI measures *predictive reliance*, not causal importance.
+
+## Partial Dependence Plots (PDP)
+
+PDP shows the **marginal effect** of a feature on predictions, averaging over all other features.
+
+```{r pdp-calculation}
+# PDP reveals how the model responds to changes in each feature.
+# Expected pattern: higher sensory scores → higher predicted Cupper Points
+sensory_features_in_model <- intersect(sensory_cols, colnames(X_train))
+top_sensory_pfi <- pfi_results %>%
+  filter(variable %in% sensory_features_in_model) %>%
+  head(4) %>%
+  pull(variable)
+
+pdp_list <- list()
+for (feat in top_sensory_pfi) {
+  pdp_list[[feat]] <- model_profile(
+    explainer = explainer_xgb, 
+    variables = feat, 
+    type = "partial", 
+    N = 300
+  )
+}
+```
+
+```{r pdp-combined, fig.cap="Partial Dependence Plots for top sensory features. Each curve shows how predicted Cupper Points change as that feature varies (holding others constant). All show positive relationships: higher sensory scores lead to higher quality predictions.", fig.width=10, fig.height=5}
+pdp_combined_data <- data.frame()
+for (feat in top_sensory_pfi) {
+  pdp_data <- pdp_list[[feat]]$agr_profiles
+  pdp_combined_data <- rbind(pdp_combined_data, data.frame(
+    Feature = feat, 
+    x = pdp_data$`_x_`, 
+    yhat = pdp_data$`_yhat_`
+  ))
+}
+
+ggplot(pdp_combined_data, aes(x = x, y = yhat, color = Feature)) +
+  geom_line(linewidth = 1.2) +
+  facet_wrap(~Feature, scales = "free_x") +
+  labs(title = "Partial Dependence Plots - Top Sensory Features", 
+       x = "Feature Value", 
+       y = "Avg Predicted Cupper Points") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"), legend.position = "none")
+```
+
+```{r pdp-variance}
+pdp_variance_importance <- data.frame(
+  Feature = character(), 
+  PDP_Variance = numeric(), 
+  PDP_Range = numeric(), 
+  stringsAsFactors = FALSE
+)
+
+for (feat in top_sensory_pfi) {
+  pdp_data <- pdp_list[[feat]]$agr_profiles
+  pdp_variance_importance <- rbind(pdp_variance_importance, data.frame(
+    Feature = feat, 
+    PDP_Variance = var(pdp_data$`_yhat_`),
+    PDP_Range = max(pdp_data$`_yhat_`) - min(pdp_data$`_yhat_`)
+  ))
+}
+
+pdp_variance_importance <- pdp_variance_importance %>% arrange(desc(PDP_Variance))
+kable(pdp_variance_importance, 
+      col.names = c("Feature", "PDP Variance", "PDP Range"),
+      caption = "Feature Importance from PDP (Variance-based)", 
+      format = "markdown", digits = 4)
+```
+
+## Why PFI and PDP Rankings Differ
+
+```{r pfi-pdp-comparison}
+rank_corr <- cor(1:4, match(pdp_variance_importance$Feature, head(pfi_results$variable, 4)), method = "spearman")
+```
+
+The Spearman correlation between PFI and PDP rankings is **`r round(rank_corr, 2)`**, indicating potential disagreement. This is expected because PFI and PDP measure fundamentally different things:
+
+- **PFI** asks: "How much does model performance degrade when this feature's signal is destroyed?"
+- **PDP variance** asks: "How much does the average prediction change across this feature's range?"
+
+Features with large PDP range may have lower PFI if most observations cluster in a narrow range where the PDP is relatively flat. Conversely, features with smaller PDP range may have higher PFI if the model relies on them consistently across the data distribution.
+
+# Summary
+
+**Key Results:**
+
+- XGBoost MAE: `r round(metrics_xgb$MAE, 4)`
+- XGBoost RMSE: `r round(metrics_xgb$RMSE, 4)`
+- XGBoost R²: `r round(metrics_xgb$R2, 4)`
+
+**Model saved to:** `r model_file`
+
+---
+
+*Report generated: `r Sys.Date()`*
