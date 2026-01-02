@@ -20,6 +20,7 @@ header-includes:
   - \setlength{\floatsep}{8pt}
   - \setlength{\textfloatsep}{8pt}
 geometry: margin=0.85in
+bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -35,6 +36,8 @@ knitr::opts_chunk$set(
 # Model directory for saving/loading trained models
 MODEL_DIR <- "saved_models"
 if (!dir.exists(MODEL_DIR)) dir.create(MODEL_DIR)
+
+library(here)
 ```
 
 # Support Vector Regression
@@ -75,8 +78,8 @@ This transformation is based on the training data and applied to train and test 
 
 
 ```{r svm-preprocessing, echo=FALSE, message=FALSE, warning=FALSE}
-# Read the data
-coffee_data <- read.csv("arabica_data_cleaned.csv", na.strings = c("", "NA"))
+# Read the data 
+coffee_data <- read.csv(here("arabica_data_cleaned.csv"), na.strings = c("", "NA"))
 
 
 
@@ -529,6 +532,7 @@ library(ggplot2)   # Visualization
 library(tidyr)     # Data reshaping (pivot_longer)
 library(knitr)     # Table formatting
 library(gridExtra) # Multi-panel plot layouts
+library(shapviz)
 
 # Global Constants
 SEED       <- 123
@@ -547,7 +551,7 @@ To ensure that the SVM and XGBoost models are comparable, we apply the same data
 SVM requires scaling because it calculates distances between data points to find the optimal separating hyperplane. Features with larger ranges would dominate the distance calculations, which would make the model incorrect. XGBoost is a tree-based method, it is only important if values are higher or lower (e.g., "is Flavor > 7.5?"), so scaling is unnecessary.
 
 ```{r xgb-load-data}
-coffee_data <- read.csv("arabica_data_cleaned.csv", na.strings = c("", "NA"))
+coffee_data <- read.csv(here("arabica_data_cleaned.csv"), na.strings = c("", "NA"))
 ```
 
 ```{r xgb-define-features}
@@ -900,7 +904,7 @@ The ranking shows that Flavor is by far the most important feature, which matche
 
 **Limitations:** Performance is weaker at extreme quality scores due to limited data. The dataset size (about 1300 samples) may restrict learning of complex patterns, and temporal effects such as harvest year are not modeled (because of the issues with source data). Finally, the target variable cupper points is subjective and includes human rating variability.
 
-## Explainable AI: PFI and PDP Analysis
+## Explainable AI
 
 ```{r xgb-xai-setup}
 if (!require("DALEX")) install.packages("DALEX", quiet = TRUE)
@@ -919,7 +923,136 @@ explainer_xgb <- DALEX::explain(
 
 ### Permutation Feature Importance (PFI)
 
-PFI measures how much model performance degrades when a feature's signal is destroyed by shuffling. Unlike XGBoost's native Gain metric, PFI is model-agnostic and accounts for feature interactions.
+PFI measures how much model performance degrades when a feature's signal is destroyed by shuffling [@friedman2001greedy]. Unlike XGBoost's native Gain metric, PFI is model-agnostic and accounts for feature interactions.
+
+```{r, svm-pfi-calc}
+# ---- Explainer ----
+explainer_svm <- DALEX::explain(
+  model = svm_model, 
+  data = test_data[, -which(names(test_data) == "Cupper.Points")], 
+  y = test_data$Cupper.Points, 
+  label = "SVM Coffee Model"
+)
+
+# ---- Loss ----
+loss_mae <- function(observed, predicted) {
+  mean(abs(observed - predicted))
+}
+
+# ---- PFI ----
+set.seed(SEED)
+pfi_svm <- model_parts(
+  explainer = explainer_svm,
+  loss_function = loss_mae,
+  type = "difference"
+)
+
+# ---- Tidy PFI ----
+pfi_results <- pfi_svm %>%
+  filter(variable != "_baseline_" & variable != "_full_model_") %>%
+  group_by(variable) %>%
+  summarise(
+    Mean_Dropout_Loss = mean(dropout_loss),
+    SD = sd(dropout_loss),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(Mean_Dropout_Loss)) %>%
+  mutate(
+    Importance = Mean_Dropout_Loss -
+      min(pfi_svm$dropout_loss[pfi_svm$variable == "_full_model_"]),
+    Rank = row_number()
+  )
+```
+
+
+```{r, svm-ale-calc}
+# ---- Select top 4 features ----
+top_features <- head(pfi_results$variable, 4)
+
+# ---- ALE ----
+set.seed(SEED)
+ale_plots <- lapply(top_features, function(feature) {
+  model_profile(
+    explainer = explainer_svm,
+    variables = feature,
+    type = "accumulated",
+    N = 1000
+  )
+})
+
+names(ale_plots) <- top_features
+
+# ---- Center ALE at 0 ----
+ale_plots <- lapply(ale_plots, function(mp) {
+  mp$agr_profiles$`_yhat_` <-
+    mp$agr_profiles$`_yhat_` - mean(mp$agr_profiles$`_yhat_`)
+  mp
+})
+```
+
+
+```{r, plot-svm-pfi-ale, fig.width=7.5, fig.height=2.6}
+pfi_plot_data <- head(pfi_results, 8)
+pfi_plot_data$variable <- factor(
+  pfi_plot_data$variable,
+  levels = rev(pfi_plot_data$variable)
+)
+
+p_pfi <- ggplot(pfi_plot_data, aes(x = Importance, y = variable)) +
+  geom_col(fill = "#2E86AB", width = 0.8) +
+  geom_errorbarh(
+    aes(xmin = Importance - SD, xmax = Importance + SD),
+    height = 0.35,
+    linewidth = 0.3
+  ) +
+  labs(
+    x = "MAE Increase",
+    y = NULL,
+    title = "PFI (SVM)"
+  ) +
+  theme_minimal(base_size = 7) +
+  theme(
+    plot.title = element_text(size = 8),
+    plot.margin = margin(2, 4, 2, 4, "pt")
+  )
+
+ale_combined_data <- do.call(
+  rbind,
+  lapply(names(ale_plots), function(feat) {
+    d <- ale_plots[[feat]]$agr_profiles
+    data.frame(
+      Feature = feat,
+      x = d$`_x_`,
+      ale = d$`_yhat_`
+    )
+  })
+)
+
+p_ale <- ggplot(ale_combined_data, aes(x = x, y = ale)) +
+  geom_line(color = "#2E86AB", linewidth = 0.6) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.25) +
+  facet_wrap(~Feature, scales = "free", nrow = 1) +
+  labs(
+    x = "Feature Value",
+    y = "Accumulated Effect",
+    title = "ALE (SVM)"
+  ) +
+  theme_minimal(base_size = 6) +
+  theme(
+    strip.text = element_text(size = 5, face = "bold"),
+    plot.title = element_text(size = 7),
+    plot.margin = margin(2, 2, 2, 2, "pt")
+  )
+
+gridExtra::grid.arrange(
+  p_pfi,
+  p_ale,
+  ncol = 2,
+  widths = c(1.4, 2.6)   
+)
+```
+
+
 
 ```{r xgb-pfi-calculation}
 loss_mae <- function(observed, predicted) mean(abs(observed - predicted))
@@ -935,15 +1068,33 @@ pfi_results <- pfi_xgb %>%
   mutate(Importance = Mean_Dropout_Loss - min(pfi_xgb$dropout_loss[pfi_xgb$variable == "_full_model_"]),
          Rank = row_number())
 ```
-```{r xgb-pdp-calculation}
-top_features_pfi <- head(pfi_results$variable, 4)
 
-pdp_list <- list()
-for (feat in top_features_pfi) {
-  pdp_list[[feat]] <- model_profile(explainer = explainer_xgb, variables = feat, 
-                                     type = "partial", N = 300)
-}
+
+```{r xgb-ale-calculation}
+# Select top 4 features from PFI for ALE analysis
+top_features <- head(pfi_results$variable, 4)
+
+# Calculate ALE for each top feature
+set.seed(SEED)
+ale_plots <- lapply(top_features, function(feature) {
+  model_profile(
+    explainer = explainer_xgb,
+    variables = feature,
+    type = "accumulated",  # ALE method
+    N = 1000               # Sample 1000 observations for efficiency
+  )
+})
+
+names(ale_plots) <- top_features
+
+# Manual correction so that ALE plots are centered around 0 which should be the default 
+ale_plots <- lapply(ale_plots, function(mp) {
+  mp$agr_profiles$`_yhat_` <-
+    mp$agr_profiles$`_yhat_` - mean(mp$agr_profiles$`_yhat_`)
+  mp
+})
 ```
+
 
 ```{r xgb-pfi-pdp-combined, fig.width=6.5, fig.height=2.2, out.width="95%"}
 # PFI plot
@@ -957,30 +1108,110 @@ p_pfi <- ggplot(pfi_plot_data, aes(x = Importance, y = variable)) +
   theme_minimal(base_size = 7) +
   theme(plot.title = element_text(size = 8))
 
-# PDP plot
-pdp_combined_data <- do.call(rbind, lapply(top_features_pfi, function(feat) {
-  pdp_data <- pdp_list[[feat]]$agr_profiles
-  data.frame(Feature = feat, x = pdp_data$`_x_`, yhat = pdp_data$`_yhat_`)
-}))
+# ALE plot
+ale_combined_data <- do.call(
+  rbind,
+  lapply(names(ale_plots), function(feat) {
+    ale_data <- ale_plots[[feat]]$agr_profiles
+    data.frame(
+      Feature = feat,
+      x = ale_data$`_x_`,
+      ale = ale_data$`_yhat_`
+    )
+  })
+)
 
-p_pdp <- ggplot(pdp_combined_data, aes(x = x, y = yhat)) +
+p_ale <- ggplot(ale_combined_data, aes(x = x, y = ale)) +
   geom_line(color = "#2E86AB", linewidth = 0.8) +
-  facet_wrap(~Feature, scales = "free_x", nrow = 1) +
-  labs(x = "Feature Value", y = "Predicted Cupper Points", title = "Partial Dependence Plots") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3) +
+  facet_wrap(~Feature, scales = "free", nrow = 1) +
+  labs(
+    x = "Feature Value",
+    y = "Accumulated Effect",
+    title = "Accumulated Local Effects (ALE)"
+  ) +
   theme_minimal(base_size = 7) +
-  theme(strip.text = element_text(size = 6, face = "bold"), plot.title = element_text(size = 8))
+  theme(
+    strip.text = element_text(size = 6, face = "bold"),
+    plot.title = element_text(size = 8)
+  )
 
-grid.arrange(p_pfi, p_pdp, ncol = 2, widths = c(1, 1.5))
+grid.arrange(
+  p_pfi,
+  p_ale,
+  ncol = 2,
+  widths = c(1, 1.5)
+)
 ```
 
 The top features are all sensory scores, confirming the model relies on expert taste evaluation. PFI provides a model-agnostic view that complements XGBoost's native importance (gain). Both agree that Flavor is most predictive.
 
-### Partial Dependence Plots (PDP)
 
-PDP shows the marginal effect of a feature on predictions, averaging over all other features. We plot the top 4 features by PFI.
+### Accumulated Local Effects (ALE)
+
+ALE plots show the marginal effect of a feature on the model’s predictions by averaging local changes in the prediction over the distribution of the other features [@apley2020visualizing]. It is chosen here instead of PDP (Partial Dependence plots), because it is more robust to multicollinearities and centered around 0. We plot the top four features ranked by permutation feature importance (PFI).
 
 All sensory features show the expected pattern: higher scores lead to higher predicted quality. The PDP range for Flavor is largest, indicating it has the strongest marginal effect on predictions.
 
+
+### Shapley Additive Explanations (SHAP)
+
+SHAP values provide a unified measure of feature importance based on cooperative game theory [@lundberg2017unified]. For each prediction, SHAP assigns each feature a value that represents its contribution to moving the prediction away from the baseline (average prediction). We utilize the SHAP values to inspect the microscopic effects of the feature values for two specific observations. For this we chose one observation with a high value for Flavor and one with a low value, since this is the most important feature according to PFI.
+
+
+```{r shapviz-plots, fig.width=6, fig.height=2}
+set.seed(SEED)
+
+target_vals <- c(0.0, 10.0)
+flavor_col <- which(colnames(X_train) == "Flavor")
+wf_plots <- vector("list", length(target_vals))
+
+for (i in seq_along(target_vals)) {
+  
+  target_val_flav <- target_vals[i]
+  obs_id <- which.min(abs(X_train[, flavor_col] - target_val_flav))
+  new_obs_matrix <- X_train[obs_id, , drop = FALSE]
+  storage.mode(new_obs_matrix) <- "numeric"
+  
+  sv <- shapviz(
+    explainer_xgb$model,
+    X_pred = new_obs_matrix
+  )
+  
+  wf_plots[[i]] <- sv_waterfall(sv, max_display = 8) +
+    ggtitle(paste("Target Flavor =", target_val_flav)) +
+    theme_minimal(base_size = 7) +
+    theme(
+      plot.title = element_text(size = 7),
+      axis.title = element_blank(),
+      axis.text  = element_text(size = 6),
+      plot.margin = margin(1, 1, 1, 1, "pt")
+    )
+}
+
+gridExtra::grid.arrange(wf_plots[[1]], wf_plots[[2]], ncol = 2)
+
+```
+
+For SVM:
+
+```{r}
+# 1. Select a specific coffee from your test set (e.g., the first one)
+new_coffee <- test_data[100, ]
+
+# 2. Calculate SHAP values for this specific coffee
+shap_local <- predict_parts(explainer = explainer_svm, 
+                             new_observation = new_coffee, 
+                             type = "shap",
+                             B = 25
+                             ) # B is the number of re-orderings to stabilize the result
+
+# 3. Plot the local explanation
+plot(shap_local) + 
+  theme_bw() +
+  labs(title = "Local Explanation for a Single Coffee Sample",
+       subtitle = "Contribution of each feature to the specific Cupper Points prediction")
+```
 # Model Comparison - SVM vs XGBoost
 
 ```{r comparison-metrics}
@@ -1050,6 +1281,8 @@ grid.arrange(p_svm, p_xgb, p_resid, ncol = 3)
 
 Both models achieve similar predictive accuracy, with XGBoost having slightly smaller MAE (0.141 vs 0.146) and larger $R^2$ (0.68 vs 0.59). The scatter plots confirm that both models produce predictions closely aligned with true values, with no systematic bias evident in either case. The residual distributions are nearly identical and centered around zero, indicating that both approaches effectively capture the underlying signal in the data.
 
----
 
-*Report generated: `r Sys.Date()`*
+## Literature
+
+<div id="refs"></div>
+
