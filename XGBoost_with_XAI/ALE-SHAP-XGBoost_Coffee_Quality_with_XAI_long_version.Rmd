@@ -1302,5 +1302,38 @@ grid.arrange(
   ncol = 2
 )
 ```
+```{r shapviz-plots, fig.width=6, fig.height=2}
+set.seed(SEED)
+
+target_vals <- c(0.0, 10.0)
+flavor_col <- which(colnames(X_full_train) == "Flavor")
+wf_plots <- vector("list", length(target_vals))
+
+for (i in seq_along(target_vals)) {
+  
+  target_val_flav <- target_vals[i]
+  obs_id <- which.min(abs(X_full_train[, flavor_col] - target_val_flav))
+  new_obs_matrix <- X_full_train[obs_id, , drop = FALSE]
+  storage.mode(new_obs_matrix) <- "numeric"
+  
+  sv <- shapviz(
+    explainer_xgb_full$model,
+    X_pred = new_obs_matrix
+  )
+  
+  wf_plots[[i]] <- sv_waterfall(sv, max_display = 8) +
+    ggtitle(paste("Target Flavor =", target_val_flav)) +
+    theme_minimal(base_size = 7) +
+    theme(
+      plot.title = element_text(size = 7),
+      axis.title = element_blank(),
+      axis.text  = element_text(size = 6),
+      plot.margin = margin(1, 1, 1, 1, "pt")
+    )
+}
+
+gridExtra::grid.arrange(wf_plots[[1]], wf_plots[[2]], ncol = 2)
+
+```
 
 
