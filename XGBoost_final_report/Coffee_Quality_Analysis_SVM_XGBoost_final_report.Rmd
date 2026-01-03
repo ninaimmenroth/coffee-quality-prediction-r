@@ -19,7 +19,7 @@ header-includes:
   - \setlength{\parskip}{3pt}
   - \setlength{\floatsep}{8pt}
   - \setlength{\textfloatsep}{8pt}
-geometry: margin=0.85in
+geometry: margin=0.85in, top=0.5cm
 bibliography: references.bib
 ---
 
