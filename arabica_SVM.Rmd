@@ -1,207 +1,23 @@
 ---
-title: "Machine Learning II Project Report"
-subtitle: "The Analysis of the Coffee Quality Dataset"
-abstract:
-date: "`r Sys.Date()`"
+title: "Support Vector Regression for Coffee Quality Prediction"
+author: "Luisa Kalkert"
+date: '`r Sys.Date()`'
 output:
-  pdf_document:
-    latex_engine: xelatex
-    toc: false
-    number_sections: true
   html_document:
-    toc: false
-    number_sections: true
     df_print: paged
-  word_document:
-    toc: false
-fontsize: 11pt
-geometry: margin=1in
-bibliography: references.bib
 ---
 
-```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
-# CLEAR ENVIRONMENT
-rm(list = ls(all.names = TRUE))
 
-# LOAD PACKAGES
-library(ggplot2)
-library(corrplot)
-library(dplyr)
-library(tidyr)
-library(knitr)
-library(kableExtra)
-library(skimr)
-library(e1071)
-library(tidyverse)
-library(gridExtra)
-library(stringr)
-library(here)
-library(shapviz)
-library(patchwork)
-library(DALEX)
 
-# GLOBAL CHUNK OPTIONS
-# 'dev' checks if it's PDF to use high-quality rendering, otherwise standard
-knitr::opts_chunk$set(
-  echo = FALSE,
-  message = FALSE, 
-  warning = FALSE,
-  fig.align = "center",
-  fig.width = 6, 
-  fig.height = 4
-)
-
-# GGPLOT THEME
-theme_set(theme_minimal())  # check ?theme_bw for other themes available
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
+## Support Vector Regression
 
-# Introduction
+### Data Preprocessing and Cleaning 
 
-This report explores the Coffee Quality dataset, walking through everything from initial descriptive analysis to the math and application of machine learning. Our goal is to use these models to move beyond simple numbers and extract real, meaningful insights into what defines a high-quality cup of coffee.
-
-## Descriptive Analysis
-
-**Summary of the Descriptive Analysis:**
-The dataset has 1,311 coffee evaluations (observations) with 44 different variables. It’s a mix of sensory scores (like how the coffee tastes) and environmental data (like where it was grown). Out of these, **24 variables are categorical and 20 are numerical**. For our project, we decided to use Cupper Points as our target variable. We avoided "Total Cup Points" because that number is just a simple sum of the other scores, which would make the prediction too easy and less meaningful.
-
-:::::::::::::: {.columns}
-
-::: {.column width="60%"}
-```{r, fig.width=5, fig.height=3}
-# Read the data
-coffee_data <- read.csv("~/ML2 arabica-coffee-analayze/arabica_data_cleaned.csv", na.strings = c("", "NA", " ", "n/a"))
-# 1. Select the features you want to focus on
-selected_features <- coffee_data %>% 
-  select(Cupper.Points, altitude_mean_meters, Aroma, Flavor, unit_of_measurement, Processing.Method, 
-         Bag.Weight, Variety, Lot.Number, Quakers, Country.of.Origin)
-
-# 2. Calculate missing values and prepare for plotting
-missing_data <- selected_features %>%
-  summarise(across(everything(), ~ sum(is.na(.)))) %>%
-  pivot_longer(everything(), names_to = "Feature", values_to = "Missing_Count") %>%
-  mutate(Percentage = (Missing_Count / nrow(coffee_data)) * 100) %>%
-  arrange(desc(Missing_Count)) # Sort so the biggest problem is first
-
-# 3. Create the bar plot
-ggplot(missing_data, aes(x = reorder(Feature, -Missing_Count), y = Missing_Count)) +
-  geom_col(fill = "firebrick", color = "white") +
-  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
-            vjust = -0.5, size = 3.5) + # Add percentage labels above bars
-  theme_minimal() +
-  ylim(0, max(missing_data$Missing_Count) + 50) + # Add space for labels
-  labs(title = "Missing Values Count in Selected Features",
-       x = "Feature",
-       y = "Number of Missing Observations") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-```
-:::
-
-::: {.column width="5%"}
-\
-:::
-
-::: {.column width="35%"}
-\
-\
-\
-**Dealing with Missing Data**
-One of the first things we noticed was that a lot of the categorical (text) data is missing. Because there were so many gaps, it was hard to use many of these variables in our models. Instead, we focused our energy on the variables that really mattered and tried to fill in the blanks for critical info like Altitude.
-:::
-
-::::::::::::::
-
-:::::::::::::: {.columns}
-
-::: {.column width="60%"}
-```{r}
-# Prepare the data in 'long' format
-long_data <- coffee_data %>%
-  select(Aroma, Flavor, Cupper.Points) %>%
-  pivot_longer(everything(), names_to = "Feature", values_to = "Score")
-
-# Create the Horizontal Combined Boxplot (Left side)
-p_box <- ggplot(long_data, aes(y = Feature, x = Score, fill = Feature)) +
-  geom_boxplot(alpha = 0.7, outlier.color = "red", outlier.shape = 16) +
-  theme_minimal() +
-  scale_fill_brewer(palette = "Set2") +
-  labs(title = "Outlier & Range Comparison",
-       y = "Feature", x = "Score") +
-  theme(legend.position = "none",
-        plot.title = element_text(face = "bold"))
-
-# Create Faceted Histograms (Right side)
-p_hist <- ggplot(long_data, aes(x = Score, fill = Feature)) +
-  geom_histogram(bins = 20, color = "white", alpha = 0.8) +
-  facet_wrap(~Feature, ncol = 1) + 
-  theme_light() +
-  scale_fill_brewer(palette = "Set2") +
-  labs(title = "Distribution Shapes",
-       x = "Score", y = "Count") +
-  theme(legend.position = "none",
-        strip.text = element_text(size = 8, face = "bold", color = "black"),
-        plot.title = element_text(face = "bold"))
-
-# Combine Side-by-Side
-# We use '|' to put them together. 
-(p_box | p_hist) + 
-  plot_layout(widths = c(1.2, 1)) + 
-  plot_annotation(title = "Sensory Feature Profile: Range and Distribution",
-                  theme = theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold")))
-```
-:::
-
-::: {.column width="5%"}
-\
-:::
-
-::: {.column width="35%"}
-\
-\
-\
-**The Distribution of the Variables**
-When we looked at the histograms and boxplots for the sensory variables, we saw that they all look very similar. Most of the scores for things like Aroma or Flavor are clustered closely together, usually between 7 and 8. We also noticed several outliers*(coffee samples that scored much higher or lower than the rest)*.
-:::
-
-::::::::::::::
-
-:::::::::::::: {.columns}
-
-::: {.column width="60%"}
-```{r , fig.width=7, fig.height=5, echo=FALSE}
-# Select only the numerical sensory columns (adjust indices as needed)
-# Usually columns like Aroma:Cupper.Points
-sensory_cols <- coffee_data %>% select(Aroma, Flavor, Aftertaste, Acidity, Body, Balance, Sweetness, Uniformity, Clean.Cup, Moisture)
-
-# Calculate correlation matrix
-M <- cor(sensory_cols, use = "complete.obs")
-
-# Visualize
-corrplot(M, method = "color", type = "upper", 
-         addCoef.col = "black", tl.col = "black", 
-         mar = c(0, 0, 1.5, 0),
-         title = "Correlation Between Sensory Attributes"
-         )
-```
-:::
-
-::: {.column width="5%"}
-\
-:::
-
-::: {.column width="35%"}
-\
-\
-\
-**Correlation Between Numerical Features**
-Finally, our correlation matrix showed us how these variables lean on each other. Most sensory features are strongly linked. if a coffee smells great (Aroma), it almost always tastes great (Flavor). However, some things, like Moisture, didn't follow the crowd. Moisture has a very low correlation with the other scores and even shows a slight negative trend, meaning more moisture sometimes leads to a slightly lower quality score.
-:::
-
-::::::::::::::
-# Data Preprocessing and Cleaning 
-
-**Feature selection:**
+#### Feature selection:
 In SVM Regression, categorical variables are One-Hot Encoded using dummy variables.
 This means, features with many unique values will lead to a sparse feature matrix. This is disadvantageous as it increases computational cost and poses the risk of overfitting. 
 Additionally, categories with only a few or even only one observation most likely will not add to model robustness, but are adding noise to the signal.
@@ -213,7 +29,7 @@ Keeping those, would mean adding 30 sparse columns, and at the same time the inf
 Therefore, we are not including this feature. 
 
 
-**Imputation:**
+#### Imputation:
 For the altitude column, we have about 17% missing values. Here, we are imputing the missing values from the "Region" column.
 For each observation with missing altitude, we are imputing the median altitude of all coffees from the same region.
 This covers almost all missing values. For the remaining observations, we are imputing the mean altitude of all coffees from the same country of origin.
@@ -221,163 +37,25 @@ As the "Region" and "Country" columns are not used in the model training, we are
 We are imputing the missing values after the train/test split, using only values from the training set, to avoid data leakage from the test set into the training set.
 
 
-**Further preprocessing:**
+#### Further preprocessing:
 The bag weight column contains both pounds and kilograms, so we are converting all to kilograms. 
 However, for some entries, it is unclear which unit is used. For these, we are averaging the weight in pounds and kilograms.
 This means for those entries the weight is certainly incorrect, but should be within an order of magnitude of the correct weight. 
 If we can assume that speciality coffee is sold in smaller quantities, we can still gain valuable information from the weight.
 
 
-**Scaling:** 
+#### Scaling: 
 The SVM method used for model training has a built in scaling functionality. 
 Both predictor and target variables are scaled to have expected value 0 and variance 1. [https://rdrr.io/rforge/e1071/man/svm.html]
 This transformation is based on the training data and applied to train and test data sets.
 
 
-# A Brief Mathematical Overview of the ML Methods Used
-## Support Vector Machine for Regression
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Read the data
+coffee_data <- read.csv("~/ML2 arabica-coffee-analayze/arabica_data_cleaned.csv", na.strings = c("", "NA"))
 
 
-```{r, fig.width=10, fig.height=6, out.width='100%', fig.align='center'}
-set.seed(123)
 
-
-x <- seq(-10, 10, 0.5) + rnorm(length(seq(-10, 10, 0.5)), mean = 0, sd = 0.1)
-y <- 1/170 * (x^3 - 3* x^2 - 70*x + 5 + rnorm(length(x), mean = 0, sd = 170))
-
-library(e1071)
-
-epsilon <- 1
-cost <- 1
-
-model <- svm(y ~ x, data = data.frame(x = x, y = y), epsilon = epsilon, cost = cost)
-predictedY <- predict(model, data.frame(x = x))
-
-plot(x, y, pch = 16, col = "grey70")
-lines(x, predictedY, col = "darkgreen")
-
-
-# Add ε-tube
-polygon(
- c(x, rev(x)),
- c(predictedY + epsilon, rev(predictedY - epsilon)),
- border = NA,
- col = rgb(1, 0, 0, 0.15)
-)
-
-# mark the 17 points that are the furthest from the predictedY 
-idx_furthest <- order(abs(predictedY - y), decreasing = TRUE)[1:17]
-points(x[idx_furthest], y[idx_furthest], 
-       col = "#000000", 
-       bg = "#ffffff00",
-       pch = 21,
-       cex = 1.6,
-       lwd = 1)
-
-
-# Add an arrow (dashed, double sided, between ypred at x = 10 and ypred at x = 10   + 1 )
-arrows(10, predictedY[length(predictedY)], 10, predictedY[length(predictedY)] + epsilon, length = 0.1, lty = 2, col = "black", code = 3)
-# add a text "ε" at the end of the arrow
-text(10, predictedY[length(predictedY)] + 1/2, expression(epsilon), pos = 4)
-
-# Add an arrow between 5,-5 and 5,-2.5 with text xsi_i star (flipped direction)
-arrows(5.05, -4, 5.05, -2.28, length = 0.1, lty = 2, col = "black")
-text(5.05, -3.2, expression(xi[j]^"*"), pos = 4)
-
-
-# Add an arrow between the 13th last point and the 13th last point - 1 with text xsi_j
-arrows(x[length(x) - 12], y[length(y) - 12], x[length(x) - 12], y[length(y) - 12]- 0.5, length = 0.1, lty = 2, col = "black")
-text(x[length(x) - 12], y[length(y) - 12] - 0.3, expression(xi[k]), pos = 4)
-
-```
-
-
-Support Vector Regression expands support Vector Machines from discrete classification to a continuos regression model.
-
-For the regression task, instead of fitting a hyperplane, we are trying to fit a (multidimensional) function $f(x)$ to the data. Similar as in the classification task, we draw a margin around the function. However, now the margin $\varepsilon$ is fixed at the start. (Note that $\varepsilon$ here, is not the slack variable as in Hasties and Tibshirani, but rather defines the width of the margin. Also, we don't aim to optimize the margin anymore, but instead fix it before the computation starts). We want to find a function f(x) that is as flat as possible, while fitting all points into the required margin. Again, we allow for some slack using slack variables. A wider margin decreases the risk of overfitting, while a smaller margin captures more intricacies of the data. 
-
-Mathematically speaking, want to find a function $f(x)$ with $| f(x_i) - y_i |  \leq \varepsilon$ for all $i$. To avoid overfitting, we also introduce the constraint of making the function as flat as possible.
-"Flatness" in this context is a measure of how sensitive the function is to change. For a linear function $f(x) = x^\top \beta + b$ increasing this flatness can be expressed through minimizing the norm of the function gradient: $\lVert \beta \rVert$. Minimizing the expression $\frac{1}{2} \lVert \beta \rVert^2$ leads to the same optimum, while allowing for more elegant mathematical solutions, and is therefore used for computation.
-
-
-Again, we want to allow for some slack, so as in the SVM for classification, we are introducing slack variables $\xi_i$ and $\xi_i^\ast$. These slack variables allow for some room for margin violations. 
-The optimization problem we want to solve is to minimize: 
-
-$$
-\frac{1}{2} \lVert \beta \rVert^2 + K \sum_{i=1}^n (\xi_i + \xi_i^\ast)
-$$
-subject to:
-$$
-y_i - f(x_i) \leq \varepsilon + \xi_i, 
-$$
-$$
-f(x_i) - y_i \leq \varepsilon + \xi_i^\ast
-$$
-and 
-$$
-\xi_i > 0, \xi_i^\ast > 0 \quad \forall i
-$$
-
-
-where $K$ is fixed and $\beta$, $\xi$ and $\xi^\ast$ are variable.
-The factor $K$ is introduced as cost for regularization purposes. It is choosen a priori to determine how strong the tradeoff between flatness and overfitting should be. A larger $K$ leads to a stronger impact of the term, therefore penalizing stronger margin violations more heavily and resulting in a less flat function curve (higher bias, lower variance). Conversly, a smaller $K$ leads to a flatter curve (lower bias, higher variance).
-
-
-As in the SVM for classification, this can be generalized to non-linear functions by transforming the features using kernels.
-
-## XGBoost
-XGBoost is an algorithm based on gradient boosted trees and second-order approximation [@chen2016xgboost]. It is widely used in machine learning due to its flexibility and strong empirical performance. These properties arise from a combination of algorithmic and systems-level optimizations, including efficient handling of sparse input data, approximate tree construction via weighted quantile sketches, and parallelized tree learning. In addition, careful optimization of memory access, data compression, and out-of-core computation enables the method to scale to very large datasets while maintaining computational efficiency.
-
-This section describes the mathematical foundations of the algorithm, namely ensemble methods, regularization, and gradient boosting machines combined with second order approximation. 
-
-### Tree Ensembles and Regularization
-
-XGBoost models the prediction as an additive ensemble of $K$ functions:
-$$
-\hat{y}_i = \sum_{k=1}^{K} f_k(x_i), \quad f_k \in \mathcal{F},
-$$
-where each $f_k$ is a regression tree belonging to the function space $\mathcal{F}$ [@chen2016xgboost; @james2021introduction]. Each tree acts as a weak learner that partitions the feature space into disjoint regions and assigns a constant prediction to each leaf [@james2021introduction].
-
-The model is trained by minimizing a regularized objective function of the form
-$$
-\mathcal{L} = \sum_{i} \ell(y_i, \hat{y}_i) + \sum_{k=1}^{K} \Omega(f_k),
-$$
-where $\ell(\cdot)$ is a differentiable loss function and $\Omega(f)$ is a regularization term that penalizes model complexity [@chen2016xgboost]. This term is defined as
-$$
-\Omega(f) = \gamma T + \frac{1}{2} \lambda \sum_{j=1}^{T} w_j^2,
-$$
-with $T$ denoting the number of leaves in the tree and $w_j$ the weight of leaf $j$. The regularization term encourages simpler trees and smooth leaf weights, helping to prevent overfitting.
-
-The ensemble structure allows the model to reduce bias by combining multiple weak learners, while regularization controls variance by limiting tree complexity and the magnitude of leaf weights [@james2021introduction]. This balance between bias and variance enables XGBoost to achieve strong predictive performance while maintaining good generalization.
-
-### Gradient Boosting Machines
-
-The tree ensemble is constructed in a stage-wise manner, where weak learners are added iteratively to improve the model [@friedman2001greedy]. At iteration $t$, the prediction is given by
-$$
-\hat{y}_i^{(t)} = \hat{y}_i^{(t-1)} + f_t(x_i),
-$$
-with $f_t \in \mathcal{F}$ denoting the newly added regression tree.
-
-Gradient tree boosting can be interpreted as gradient descent in function space, where each new learner is chosen to minimize the loss function in the direction of the negative gradient [@friedman2001greedy]. Specifically, the new tree at iteration $t$ is trained to fit the negative first order gradient
-$$
--g_i^{(t)} = -\left. \frac{\partial \ell(y_i, \hat{y})}{\partial \hat{y}} \right|_{\hat{y} = \hat{y}_i^{(t-1)}}.
-$$
-
-XGBoost extends this framework by explicitly approximating the objective function using a second-order Taylor expansion of the loss around the current predictions:
-$$
-\ell(y_i, \hat{y}_i^{(t-1)} + f_t(x_i)) \approx \ell(y_i, \hat{y}_i^{(t-1)}) + g_i f_t(x_i) + \frac{1}{2} h_i f_t(x_i)^2,
-$$
-where
-$$
-h_i = \left. \frac{\partial^2 \ell(y_i, \hat{y})}{\partial \hat{y}^2} \right|_{\hat{y} = \hat{y}_i^{(t-1)}}
-$$
-is the second order derivative of the loss [@chen2016xgboost]. By incorporating both first- and second-order information, XGBoost enables efficient optimization of tree structures and leaf weights within each boosting iteration.
-
-
-# Applications
-## Support Vector Regression
-
-```{r, preprocessing, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
 # Avoid categorical variables with many unique values because they will create many dummy variables. 
 columns_to_use <- c(
   "Number.of.Bags",
@@ -467,6 +145,7 @@ test_data <- coffee_data[-train_index, ]
 
 ## Altitude
 
+library(tidyverse)
 
 
 # Create dict of regions and their median altitudes
@@ -530,8 +209,7 @@ test_data  <- data.frame(model.matrix(~ ., data = test_data))[,-1]
 
 ```
 
-
-```{r, stats, echo=FALSE}
+```{r, echo=FALSE}
 # print(paste0(
 #   "Number of training samples: ", nrow(train_data), "\n",
 #   "Number of test samples: ", nrow(test_data), "\n",
@@ -544,7 +222,6 @@ test_data  <- data.frame(model.matrix(~ ., data = test_data))[,-1]
 
 ```
 
-
 ### Support Vector Regression - Hyperparameter Optimization
 
 For the prediction of cupper points we train an SVM for regression on the data set, holding out the test data set for final evaluation. 
@@ -553,13 +230,13 @@ We use a grid search for different values for cost and epsilon for a radial, lin
 
 
 
-```{r, svm-training, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
 
 
 
 
 ####  Fit SVM model with polynomial kernel (degree 2) 
-
+library(e1071)
 
 # Gridsearch 
 epsilon = seq(0,2,0.1)
@@ -578,6 +255,7 @@ tuneResult <- tune(svm, Cupper.Points ~ .,  data = data.frame(train_data),
 
 # Show Results and visualize tuning as a heatmap 
 # print(tuneResult)
+library(ggplot2)
 
 perf <- tuneResult$performances
 best <- data.frame(
@@ -586,7 +264,8 @@ best <- data.frame(
 )
 
  
-
+ library(dplyr)
+ library(tidyr)
  
  # Reshape performance data so that each row is an epsilon value and
  # each column (after the first) is a cost value, holding the error.
@@ -776,10 +455,7 @@ print(paste("MAE:", mae))
 
 
 ```
-
-
 The best performing kernel is the linear kernel, which means the relationship between the features and the target variable is best approximated by a multidimensional hyperplane.
-
 
 ```{r, echo=FALSE, fig.height=3}
 # Plot the predictions vs the true values
@@ -799,26 +475,25 @@ random_prediction <- predict(svm_model, random_data)
 
 ```
 
-
 Here, we can see the predictions vs. the true values for the test data set. We can see that aside from two outliers, the predictions are close to the true values.
 
 
 
-## XGBoost
+### Explainable AI Methods 
 
-# XAI and Comparison of the Models SVR and XGBoost
-## Permutation Feature Importance (PFI)
-**FOR SVM PFI;** The chart shows us exactly which "ingredients" the model thinks are most important for a high-quality cup of coffee. Flavor and Aftertaste are the clear winners here; when the model loses track of these, its accuracy drops the most. Balance and Acidity also help quite a bit, but they aren't as critical as the overall taste. Interestingly, all the "technical" details—like how much the Bag Weighs, the Altitude where it was grown, or the Moisture level don't effect significantly. Basically, the model has learned that if the coffee tastes great and has a clean finish, the technical background don't change the final score very much.
-```{r, fig.width=7, fig.height=4, results='hide'}
+#### Permutation Feature Importance (PFI)
+
+
+```{r, fig.width=7, fig.height=4}
+library(DALEX)
+
 # Create an "Explainer" object. Tell Dalex how to talk to the svm_model
-explainer_svm <- DALEX::explain(
-  model = svm_model, 
-  data = test_data[,-which(names(test_data)=="Cupper.Points")], 
-  y = test_data$Cupper.Points, 
+explainer_svm <- explain(
+  model = svm_model,
+  data = test_data[, -which(names(test_data) == "Cupper.Points")], # Predictors only
+  y = test_data$Cupper.Points,                                   # Actual target
   label = "SVM Coffee Model"
 )
-
-
 loss_mae <- function(observed, predicted){
   mean(abs(observed - predicted))
 }
@@ -834,10 +509,11 @@ plot(pfi_results) +
   ggtitle("Feature Importance (PFI) for Coffee Quality", 
           subtitle = "How much the error increases when a feature is shuffled") +
   theme_minimal()
+
 ```
 
-## Partial Dependence Plot (PDP)
-**FOR SVM PDP;** The plots show how the model’s quality predictions change as we look at different scores for *Acidity, Aroma, and Flavor*. The upward-sloping blue lines tell a very logical story: as these sensory scores go up, the model's predicted quality score also rises. By adding the red dots (our actual coffee samples), we can see that the model is doing a good job of finding the "middle ground" where most of the data lives. Also, we can see that the model doesn’t get distracted by the outliers, the model stays focused on the general trend, which shows it has built a very stable and reliable "logic" for what makes a good cup of coffee.
+#### Partial Dependence Plot (PDP) --Not recommended for correlated features!
+
 ```{r}
 # Calculate the Marginal Effects (PDP)
 # We choose a few key features to look at (e.g., Flavor, Altitude, and Aroma)
@@ -847,15 +523,15 @@ pdp_results <- model_profile(
   type = "partial" # This specifies Partial Dependence
 )
 
-# Prepare your raw data to match the facets
-# We take the test data, select the variables in the PDP, and make them "long"
+# 1. Prepare your raw data to match the facets
+# We take the test data, select the variables in your PDP, and make them "long"
 test_data_long <- test_data %>%
   select(Cupper.Points, Flavor, Acidity, Aroma) %>%
   pivot_longer(cols = c(Flavor, Acidity, Aroma), 
                names_to = "_vname_",   # This must match the internal DALEX name
                values_to = "_x_")      # This must match the internal DALEX name
 
-# Plot the PDP and overlay the points
+# 2. Plot the PDP and overlay the points
 plot(pdp_results) +
   geom_jitter(data = test_data_long, 
               aes(x = `_x_`, y = Cupper.Points), 
@@ -863,12 +539,12 @@ plot(pdp_results) +
   ggtitle("Partial Dependence Plots for Coffee Quality", 
           subtitle = "Red dots = Actual observations | Blue line = Model average") +
   theme_bw()
+
 ```
 
-## Accumulated Local Effects (ALE)
-ALE is a better option to see the feature importance in a model who has correlated features.Because The ALE plot is just a way to see how one specific feature (like Flavor) changes the final score, without getting confused by other features.
-**FOR SVM ALE;**
-The dashed line at zero represents an average cup of coffee in our data. When the blue line is above this zero mark, it means that specific feature is adding "bonus points" to the quality, while anything below zero means it is pulling the score down. Because the blue line slopes upward to the right, we can see the model correctly learned that higher sensory scores lead to higher quality predictions. The red dots represent the actual coffee samples, and since they cluster tightly around the blue line, it proves the model's internal logic is a very strong match for the real-world results as we have seen in PDP plots as well.
+#### Accumulated Local Effects (ALE)
+ALE is a better option to see the feature importance in a model who has correlated features.
+
 ```{r}
 # Calculate ALE instead of PDP
 ale_results <- model_profile(
@@ -880,7 +556,7 @@ ale_results <- model_profile(
 # We subtract the mean of the predictions (_yhat_) so the line centers at 0
 ale_results$agr_profiles$`_yhat_` <- ale_results$agr_profiles$`_yhat_` - mean(ale_results$agr_profiles$`_yhat_`)
 
-# centered dots from before
+# 3. Use your centered dots from before
 avg_cupper_points <- mean(test_data$Cupper.Points, na.rm = TRUE)
 
 test_data_centered <- test_data %>%
@@ -890,7 +566,7 @@ test_data_centered <- test_data %>%
                names_to = "_vname_",   
                values_to = "_x_")
 
-# Plot - Now they will align at zero
+# 4. Plot - Now they will align at zero
 plot(ale_results) +
   geom_jitter(data = test_data_centered, 
               aes(x = `_x_`, y = Centered_Cupper_Points), 
@@ -905,33 +581,24 @@ plot(ale_results) +
   theme_bw()
 ```
 
-## Shapley Additive Explanations (SHAP)
-The SHAP is a Local Explanation, which acts like a "scorecard" for one specific cup of coffee to show why it received its particular prediction.
-
-**FOR SVM SHAP;** 
-In this specific example *(the number of observation is 100)*, the model's prediction was dragged down primarily because the Balance, Flavor, and Aftertaste scores were lower than average, as shown by the red bars extending to the left. On the other hand, the green bars show that this coffee’s Aroma and Clean Cup scores actually helped boost its final rating. Essentially, this plot shows exactly which characteristics made this specific cup of coffee better or worse than a typical sample.
+#### SHAP
+#### Local Explanation (Why this specific cup of coffee?)
 
 ```{r}
-# a specific coffee from the test set
+# 1. Select a specific coffee from your test set (e.g., the first one)
 new_coffee <- test_data[100, ]
 
-# Calculate SHAP values for this specific coffee
+# 2. Calculate SHAP values for this specific coffee
 shap_local <- predict_parts(explainer = explainer_svm, 
                              new_observation = new_coffee, 
                              type = "shap",
                              B = 25
                              ) # B is the number of re-orderings to stabilize the result
 
-# Plot the local explanation
+# 3. Plot the local explanation
 plot(shap_local) + 
   theme_bw() +
   labs(title = "Local Explanation for a Single Coffee Sample",
        subtitle = "Contribution of each feature to the specific Cupper Points prediction")
 ```
-
-
-# Literature
-
-<div id="refs"></div>
-
 
